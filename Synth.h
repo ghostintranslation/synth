@@ -292,8 +292,21 @@ inline void Synth::update(){
 
   // FM
   int fm = this->device->getInput(this->fmInputIndex);
+  int modulatorFrequency = 0;
+  float modulatorAmplitude = 0;
   
-  int modulatorFrequency = map(fm, 0, this->device->getAnalogMaxValue(), 0, 1000);
+  if(fm < this->device->getAnalogMaxValue() / 3){
+    modulatorFrequency = map(fm, 0, this->device->getAnalogMaxValue() / 2, 0, 10);
+    modulatorAmplitude = (float)map((float)fm, 0, this->device->getAnalogMaxValue() / 2, 0.001, .01);
+  }
+  else if(fm >= this->device->getAnalogMaxValue() / 3 && fm < this->device->getAnalogMaxValue() / 2){
+    modulatorFrequency = map(fm, 0, this->device->getAnalogMaxValue() / 2, 0, 40);
+    modulatorAmplitude = (float)map((float)fm, 0, this->device->getAnalogMaxValue() / 2, 0.001, .01);
+  }else{
+    modulatorFrequency = map(fm, this->device->getAnalogMaxValue() / 2, this->device->getAnalogMaxValue(), 0, 1000);
+    modulatorAmplitude = (float)map((float)fm, this->device->getAnalogMaxValue() / 2, this->device->getAnalogMaxValue(), 0, .5);
+  }
+  
   if(this->modulatorFrequency != modulatorFrequency){
     this->modulatorFrequency = modulatorFrequency;
     for (int i = 0; i < voiceCount ; i++) {
@@ -301,7 +314,6 @@ inline void Synth::update(){
     }
   }
   if(fm > 50){
-    float modulatorAmplitude = (float)map((float)fm, 0, this->device->getAnalogMaxValue(), 0, .5);
     if(this->modulatorAmplitude != modulatorAmplitude){
       this->modulatorAmplitude = modulatorAmplitude;
       for (int i = 0; i < voiceCount ; i++) {
