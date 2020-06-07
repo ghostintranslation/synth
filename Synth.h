@@ -33,6 +33,7 @@ class Synth{
     unsigned int release;
     int modulatorFrequency;
     float modulatorAmplitude;
+    float shape;
 
     Motherboard6 *device;
     
@@ -270,8 +271,26 @@ inline void Synth::update(){
   }
     
   
+  // Shape
+  float shape = (float)map(
+    (float)this->device->getInput(
+    this->shapeInputIndex), 
+    this->device->getAnalogMinValue(), 
+    this->device->getAnalogMaxValue(),
+    0,
+    1
+  );
+  
+  if(this->shape != shape){
+    this->shape = shape;
+    for (int i = 0; i < voiceCount ; i++) {
+      this->voices[i]->setShape(shape);
+    }
+  } 
+
   // Attack
   int attack = map(this->device->getInput(this->attackInputIndex), 0, this->device->getAnalogMaxValue(), 0, 2000);
+  
   if(this->attack != attack){
     this->attack = attack;
     for (int i = 0; i < voiceCount ; i++) {

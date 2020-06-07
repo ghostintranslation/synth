@@ -67,6 +67,7 @@ class Motherboard6{
     int getInput(byte index);
     int getEncoderSwitch(byte index);
     int getAnalogMaxValue();
+    int getAnalogMinValue();
 };
 
 
@@ -572,9 +573,15 @@ inline int Motherboard6::getEncoderSwitch(byte index){
  * Get max analog value according to resolution
  */
 inline int Motherboard6::getAnalogMaxValue(){
-  return (1 << this->analogResolution) - 1;
+  return 1017;//(1 << this->analogResolution) - 1;
 }
 
+/**
+ * Get max analog value according to resolution
+ */
+inline int Motherboard6::getAnalogMinValue(){
+  return 41;//(1 << this->analogResolution) - 1;
+}
 
 /**
  * Debug print
