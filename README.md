@@ -49,12 +49,12 @@ Here is a description of the 6 inputs and what they do:
     2. Arp
     3. Drone
 2. Param
-    1. Synth: Glide          (TODO)
+    1. Synth: Glide
     2. Arp: Time             
      . Arp with Midi clock   (TODO)
     3. Drone: Free frequency
 3. Shape
-    . Sine / triangle        (TODO)
+    . Sine / triangle
 4. FM
     . Modulator frequency and amplitude
     . 3 divisions:

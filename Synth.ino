@@ -30,10 +30,6 @@ AudioConnection patchCord1(*synth.getOutput(), 0, i2s2, 0);
 AudioConnection patchCord2(*synth.getOutput(), 0, i2s2, 1);
 AudioControlSGTL5000 sgtl5000_1;
 
-// TODO: DELETE
-const int interval_time = 50;
-elapsedMillis clock_count;
-
 void setup() {
   Serial.begin(115200);
   
@@ -66,17 +62,8 @@ void loop() {
   MIDI.read();
   usbMIDI.read();
 
-
-// TODO: MOVE INTO synth.update()
-  // Leveraging the overload
-  if (clock_count >= interval_time) {
-    
-    // Synth update
-    synth.update();
-    
-    clock_count = 0;
-  }
-
+  // Synth update
+  synth.update();
 }
 
 

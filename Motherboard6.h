@@ -179,7 +179,7 @@ inline void Motherboard6::update(){
 
   // Debug
   if (this->clockDebug >= 100) {
-    this->printInputs();
+//    this->printInputs();
     this->clockDebug = 0;
   }
 }
@@ -199,7 +199,7 @@ inline void Motherboard6::setMainMuxOnLeds(){
  * Main multiplexer on Potentiometers
  */
 inline void Motherboard6::setMainMuxOnPots(){
-  pinMode(22, INPUT_PULLUP);
+  pinMode(22, INPUT);
   digitalWrite(2, LOW);
   digitalWrite(3, HIGH);
   digitalWrite(4, LOW);
