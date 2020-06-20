@@ -75,6 +75,7 @@ void loop() {
  */
 void onNoteOn(byte channel, byte note, byte velocity) {
   synth.noteOn(note);
+  device.setDisplay(0, 1);
 }
 
 /**
@@ -82,6 +83,7 @@ void onNoteOn(byte channel, byte note, byte velocity) {
  */
 void onNoteOff(byte channel, byte note, byte velocity) {
   synth.noteOff(note);
+  device.setDisplay(0, 0);
 }
 
 /**

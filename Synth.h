@@ -75,10 +75,10 @@ inline Synth::Synth(Motherboard6 *device){
   this->release = 2000;
 
   this->output = new AudioMixer4();
-  this->output->gain(0, .5 );
-  this->output->gain(1, .5 );
-  this->output->gain(2, .5 );
-  this->output->gain(3, .5 );
+  this->output->gain(0, 1 );
+  this->output->gain(1, 1 );
+  this->output->gain(2, 1 );
+  this->output->gain(3, 1 );
 
   for (int i = 0; i < voiceCount/4; i++) {
     this->mixers[i] = new AudioMixer4();

@@ -34,7 +34,7 @@ class Motherboard6{
     elapsedMillis clockDebug;
     // Main clock
     elapsedMicros clockMain;
-    const unsigned int intervalClockMain = 5000;
+    const unsigned int intervalClockMain = 25000;
     // Leds clocks
     const unsigned int intervalDisplay = 10;
     elapsedMicros clockDisplay;
@@ -179,7 +179,7 @@ inline void Motherboard6::update(){
 
   // Debug
   if (this->clockDebug >= 100) {
-//    this->printInputs();
+    this->printInputs();
     this->clockDebug = 0;
   }
 }
@@ -256,8 +256,16 @@ inline void Motherboard6::setMainMuxOnChannel(){
  * Iterate LEDs
  */
 inline void Motherboard6::iterateDisplay(){
-  this->currentLed++;
-  this->currentLed = this->currentLed % this->ioNumber;
+  // Iterating only on the acive leds
+  // to save time between one led's iterations
+  // and so improve brightness
+  for(byte i = this->currentLed+1; i < this->currentLed+1 + this->ioNumber; i++){
+    byte j = i % this->ioNumber;
+    if(this->leds[j] > 0){
+      this->currentLed = j;
+      break;
+    }
+  }
 }
 
 /**
@@ -276,7 +284,7 @@ inline void Motherboard6::updateDisplay(){
     digitalWrite(14, r2);
 //  }
 
-    digitalWrite(22, HIGH);
+//    digitalWrite(22, HIGH);
     
 //  if(this->clockDisplay > this->intervalDisplay / 1.75) {
     if(this->leds[this->currentLed] == 1){
@@ -312,6 +320,8 @@ inline void Motherboard6::updateDisplay(){
       if(clockDisplayFlash%20 > 16){
         digitalWrite(22, LOW);
       }
+    }else{
+      digitalWrite(22, HIGH);
     }
 //  }
 }
@@ -580,7 +590,7 @@ inline int Motherboard6::getAnalogMaxValue(){
  * Get max analog value according to resolution
  */
 inline int Motherboard6::getAnalogMinValue(){
-  return 41;//(1 << this->analogResolution) - 1;
+  return 4;//(1 << this->analogResolution) - 1;
 }
 
 /**
