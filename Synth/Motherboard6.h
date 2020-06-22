@@ -420,6 +420,7 @@ inline void Motherboard6::readPotentiometer(byte inputIndex){
   
   if(this->potentiometersReadings[inputIndex] == 255){
     this->potentiometers[inputIndex] = this->potentiometersTemp[inputIndex] / 255; 
+    this->potentiometers[inputIndex] = map(this->potentiometers[inputIndex], this->getAnalogMinValue(), this->getAnalogMaxValue(), 0, 1023);
     
     this->potentiometersReadings[inputIndex] = 0;
     this->potentiometersTemp[inputIndex] = 0;
@@ -582,15 +583,15 @@ inline int Motherboard6::getEncoderSwitch(byte index){
 /**
  * Get max analog value according to resolution
  */
-inline int Motherboard6::getAnalogMaxValue(){
-  return 1017;//(1 << this->analogResolution) - 1;
+inline int Motherboard6::getAnalogMinValue(){
+  return 3;//(1 << this->analogResolution) - 1;
 }
 
 /**
  * Get max analog value according to resolution
  */
-inline int Motherboard6::getAnalogMinValue(){
-  return 4;//(1 << this->analogResolution) - 1;
+inline int Motherboard6::getAnalogMaxValue(){
+  return 1017;//(1 << this->analogResolution) - 1;
 }
 
 /**

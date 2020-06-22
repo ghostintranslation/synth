@@ -64,7 +64,7 @@ class Voice{
     void noteOn(byte midiNote = 0);
     void noteOff();
     // Setters
-    void setADR(unsigned int attack, unsigned int decay, unsigned int release);
+    void setAR(unsigned int attack, unsigned int release);
     void setNotePlayed(bool notePlayed);
     void setMode(byte mode);
     void setFrequency(int freq);
@@ -73,7 +73,6 @@ class Voice{
     void setModulatorAmplitude(float amp);
     void setShape(float shape);
     void setAttack(int att);
-    void setDecay(int dec);
     void setRelease(int rel);
     void setGlide(byte glide);
     void setUpdateMillis(byte updateMillis);
@@ -98,7 +97,7 @@ inline Voice::Voice(){
   this->mixer->gain(1, 0.2 );
   this->sineModulator = new AudioSynthWaveformSine();
   this->envelope = new AudioEffectEnvelope();
-  this->envelope->sustain(0.5);
+  this->envelope->sustain(1);
   this->output = new AudioMixer4();
   this->output->gain(0, 0);
   this->output->gain(1, 1);
@@ -121,9 +120,9 @@ inline Voice::Voice(){
 inline void Voice::update(){
   if(this->intervalGlide > 0){
     if(this->frequencyTarget > this->freq){
-      this->freq = (float)this->freq + (this->frequencyTarget - this->freq) / ((float)this->intervalGlide / (float)updateMillis);
+      this->freq += (this->frequencyTarget - this->freq) / ((float)this->intervalGlide / (float)updateMillis);
     }else{
-      this->freq = (float)this->freq - (this->freq - this->frequencyTarget) / ((float)this->intervalGlide / (float)updateMillis);
+      this->freq -= (this->freq - this->frequencyTarget) / ((float)this->intervalGlide / (float)updateMillis);
     }
 
     this->setFrequency(this->freq);
@@ -133,11 +132,10 @@ inline void Voice::update(){
 }
 
 /**
- * Set Attack Decay Release
+ * Set Attack Release
  */
-inline void Voice::setADR(unsigned int attack, unsigned int decay, unsigned int release){
+inline void Voice::setAR(unsigned int attack, unsigned int release){
   this->envelope->attack(attack);
-  this->envelope->decay(decay);
   this->envelope->release(release);
 }
 
@@ -153,10 +151,11 @@ inline AudioMixer4 * Voice::getOutput(){
  */
 inline void Voice::noteOn(byte midiNote) {
   this->currentNote = midiNote;
-  this->envelope->noteOn();
   this->last_played = millis();
   this->notePlayed=true;
   this->frequencyTarget = 440.0 * powf(2.0, (float)(this->currentNote - 69) * 0.08333333);
+  this->update();
+  this->envelope->noteOn();
 }
 
 /**
@@ -164,6 +163,7 @@ inline void Voice::noteOn(byte midiNote) {
  */
 inline void Voice::noteOff() {
   this->envelope->noteOff();
+  this->frequencyTarget = this->freq;
 }
 
 /**
@@ -238,12 +238,17 @@ inline void Voice::setModulatorFrequency(int freq){
 inline void Voice::setModulatorAmplitude(float amp){
   this->sineModulator->amplitude(amp);
 }
+
+/**
+ * Set envelope attack
+ */
 inline void Voice::setAttack(int att){
   this->envelope->attack(att);
 }
-inline void Voice::setDecay(int dec){
-  this->envelope->decay(dec);
-}
+
+/**
+ * Set envelope release
+ */
 inline void Voice::setRelease(int rel){
   this->envelope->release(rel);
 }

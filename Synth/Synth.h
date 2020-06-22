@@ -7,8 +7,6 @@
 #include "Voice.h"
 
 // Number of voices
-// Reduced number of voices because it breaks on Teensy 3.2 .
-// This will need more testings with Teensy 4.0 to confirm that it is a memory issue
 const byte voiceCount = 16; // max = 16
 
 
@@ -29,7 +27,6 @@ class Synth{
     byte arpNotesPlaying;
     byte arpNotes[voiceCount];
     unsigned int attack;
-    unsigned int decay;
     unsigned int release;
     int modulatorFrequency;
     float modulatorAmplitude;
@@ -71,7 +68,6 @@ inline Synth::Synth(Motherboard6 *device){
   
   this->synthesis = 0;
   this->attack = 10;
-  this->decay = 35;
   this->release = 2000;
 
   this->output = new AudioMixer4();
@@ -92,7 +88,7 @@ inline Synth::Synth(Motherboard6 *device){
   
   for (int i = 0; i < voiceCount; i++) {
     this->voices[i] = new Voice();
-    this->voices[i]->setADR(this->attack, this->decay, this->release);
+    this->voices[i]->setAR(this->attack, this->release);
     this->voices[i]->setUpdateMillis(this->updateMillis);
     this->patchCords[i] = new AudioConnection(*this->voices[i]->getOutput(), 0, *this->mixers[i/4], i%4);
   }
@@ -208,7 +204,7 @@ inline void Synth::update(){
     }
 
     // Mode
-    byte mode = (byte)map(this->device->getInput(this->modeInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2);
+    byte mode = (byte)constrain(map(this->device->getInput(this->modeInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2), 0, 2);
     bool monoPoly = map(this->device->getInput(this->modeInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue() / 3, 0, 1);
     
     // A little addition to the SYNTH mode
@@ -251,14 +247,18 @@ inline void Synth::update(){
     int parameter = this->device->getInput(this->parameterInputIndex);
   
     if(this->parameter != parameter){
-      
       this->parameter = parameter;
+      
       switch(modes(this->mode)){
-        case SYNTH: 
+        case SYNTH:
+        {
           // Glide
+          int voiceGlide = constrain(map(parameter, this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 255), 0, 255);
+
           for (int i = 0; i < voiceCount ; i++) {
-            this->voices[i]->setGlide(map(parameter, this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 255));
+            this->voices[i]->setGlide(voiceGlide);
           }
+        }
         break;
         case ARP: 
           // Time
