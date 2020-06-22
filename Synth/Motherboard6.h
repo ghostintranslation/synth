@@ -1,8 +1,8 @@
-#ifndef Device_h
-#define Device_h
+#ifndef Motherboard6_h
+#define Motherboard6_h
 
 /*
- * Device
+ * Motherboard6
  */
 class Motherboard6{
   
@@ -34,7 +34,7 @@ class Motherboard6{
     elapsedMillis clockDebug;
     // Main clock
     elapsedMicros clockMain;
-    const unsigned int intervalClockMain = 25000;
+    const unsigned int intervalClockMain = 5000;
     // Leds clocks
     const unsigned int intervalDisplay = 10;
     elapsedMicros clockDisplay;
