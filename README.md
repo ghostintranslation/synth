@@ -1,9 +1,12 @@
 # SYNTH
-A Teensy 4 eurorack synth 
+SYNTH is a modular FM polyphonic sequencer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
 
-This is a work in progress.
+It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6).
 
-The current schematics need to be reworked to solve some issues.
+NOTE: This is a work in progress.
+
+<img src="synth.jpg" width="200px"/>
+<img src="synth-side.jpg" width="200px"/>
 
 ## Features
 
@@ -51,7 +54,7 @@ Here is a description of the 6 inputs and what they do:
 2. Param
     1. Synth: Glide
     2. Arp: Time             
-     . Arp with Midi clock   (TODO)
+        - Arp with Midi clock   (TODO)
     3. Drone: Free frequency
 3. Shape
     . Sine / triangle
