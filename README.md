@@ -66,10 +66,10 @@ Here is a description of the 6 inputs and what they do:
         - Arp with Midi clock   (TODO)
     3. Drone: Free frequency
 3. Shape
-    . Sine / triangle
+    - Sine / triangle
 4. FM
-    . Modulator frequency and amplitude
-    . 3 divisions:
+    - Modulator frequency and amplitude
+    - 3 divisions:
         1. 0 to 10Hz, low amplitude
         2. 0 to 40Hz, low amplitude
         3. 0 to 1000Hz, higher amplitude
