@@ -5,8 +5,7 @@ It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6
 
 NOTE: This is a work in progress.
 
-<img src="synth.jpg" width="200px"/>
-<img src="synth-side.jpg" width="200px"/>
+<img src="synth.jpg" width="200px"/> <img src="synth-side.jpg" width="200px"/>
 
 ## Features
 
@@ -41,6 +40,16 @@ What things you need to make it work:
 1 LED
 1 4 positions dipswitch (optional)
 ```
+
+In order to run any sketch on the Teensy you have to install the Teensyduino add-on to Arduino.
+Follow the instructions from the official page:
+https://www.pjrc.com/teensy/teensyduino.html
+
+Then open the sketch located in the Synth folder of this repo.
+
+In the Tools -> USB Type menu, choose "Serial + midi".
+
+Then you are ready to compile and upload the sketch.
 
 # How to use
 
