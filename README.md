@@ -1,4 +1,5 @@
 # SYNTH
+
 SYNTH is a modular FM polyphonic synthesizer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
 
 It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6).
@@ -51,7 +52,7 @@ In the Tools -> USB Type menu, choose "Serial + midi".
 
 Then you are ready to compile and upload the sketch.
 
-# How to use
+## How to use
 
 Here is a description of the 6 inputs and what they do:
 
@@ -78,7 +79,15 @@ Here is a description of the 6 inputs and what they do:
 
 ```
 
-## About me
+## MIDI
+
+The MIDI input and output jacks are directly connected to the Teensy serial input and output. That means there is not protection against voltage or current. It is primarily ment to connect 2 of these modules, or 2 Teensy together. If you want to connect something else to it make sure to provide a maximum of 3.3v and 250 mA.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+
+# About me
 You can find me on Bandcamp and Instagram:
 
 https://ghostintranslation.bandcamp.com/
@@ -88,8 +97,3 @@ https://www.instagram.com/ghostintranslation/
 https://www.youtube.com/channel/UCcyUTGTM-hGLIz4194Inxyw
 
 https://www.ghostintranslation.com/
-
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
