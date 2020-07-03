@@ -1,5 +1,5 @@
 # SYNTH
-SYNTH is a modular FM polyphonic sequencer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
+SYNTH is a modular FM polyphonic synthesizer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
 
 It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6).
 
