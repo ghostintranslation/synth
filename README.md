@@ -37,16 +37,18 @@ What things you need to make it work:
 1 MOTHERBOARD6A pcb
 1 MOTHERBOARD6B pcb
 1 SYNTH front panel pcb
-6 vertical potentiometers 10K
+6 vertical linear 10k potentiometers
 3 14 pins male header
 5 14 pins female header
 4 CD4051 multiplexers
 4 DIP16 IC sockets (optionak)
 2 3.5mm jack connectors
-1 resistor ~ 80ohm
+1 resistor ~ 22ohm
 1 LED
 1 4 positions dipswitch (optional)
 ```
+
+I personally get these parts from multiple stores: digikey.com, thonk.co.uk, modularaddict.com
 
 In order to run any sketch on the Teensy you have to install the Teensyduino add-on to Arduino.
 Follow the instructions from the official page:
