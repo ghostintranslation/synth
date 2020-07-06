@@ -603,7 +603,7 @@ inline int Motherboard6::getInput(byte index){
       // Encoder
       // Device is not saving the encoders values, only the latest change
       int value = this->encoders[index];
-//      this->encoders[index] = 0; 
+      this->encoders[index] = 0; 
       return value;
     break;
   }
