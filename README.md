@@ -19,6 +19,12 @@ NOTE: This is a work in progress.
 * MIDI over mini jack
 * Audio jack output
 
+## Dimensions
+
+Height: 3U / 128.5mm
+
+Width: 8HP / 40mm
+
 ## Getting Started
 
 ### Prerequisites
