@@ -7,6 +7,9 @@
 class Motherboard6{
   
   private:
+    static Motherboard6 *instance;
+    Motherboard6();
+    
     byte currentRow = 0;
     byte currentLed = 0;
     byte currentInput = 0;
@@ -93,8 +96,8 @@ class Motherboard6{
     void printLeds();
     
   public:
-    Motherboard6(byte *inputs);
-    void init();
+    static Motherboard6 *getInstance();
+    void init(byte *inputs);
     void update();
     void setDisplay(byte ledIndex, byte ledStatus);
     void resetDisplay();
@@ -105,14 +108,15 @@ class Motherboard6{
     byte getMidiChannel();
 };
 
+// Instance pre init
+Motherboard6 * Motherboard6::instance = nullptr;
+
 /**
  * Constructor
  */
-inline Motherboard6::Motherboard6(byte *inputs){
-  this->columnsNumber = columnsNumber;
+inline Motherboard6::Motherboard6(){
   this->ioNumber = 3*this->columnsNumber;
 
-  this->inputs = new byte[this->ioNumber];
   this->leds = new byte[this->ioNumber];
   this->buttons = new bool[this->ioNumber];
   this->potentiometers = new unsigned int[this->ioNumber];
@@ -123,7 +127,6 @@ inline Motherboard6::Motherboard6(byte *inputs){
   this->encodersSwitch = new bool[this->ioNumber];
 
   for(byte i = 0; i < this->ioNumber; i++){
-    this->inputs[i] = inputs[i];
     this->leds[i] = 0;
     this->ledsDuration[i] = 0;
     this->buttons[i] = true;
@@ -138,9 +141,24 @@ inline Motherboard6::Motherboard6(byte *inputs){
 }
 
 /**
+ * Singleton instance
+ */
+inline static Motherboard6 *Motherboard6::getInstance()    {
+  if (!instance)
+     instance = new Motherboard6;
+  return instance;
+}
+
+/**
  * Init
  */
-inline void Motherboard6::init(){
+inline void Motherboard6::init(byte *inputs){
+  // Init of the inputs
+  this->inputs = new byte[this->ioNumber];
+  for(byte i = 0; i < this->ioNumber; i++){
+    this->inputs[i] = inputs[i];
+  }
+  
   // Main multiplexer
   pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);

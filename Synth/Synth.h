@@ -2,6 +2,8 @@
 #define Synth_h
 
 #include <Audio.h>
+#include <MIDI.h>
+MIDI_CREATE_DEFAULT_INSTANCE(); // MIDI library init
 
 #include "Motherboard6.h"
 #include "Voice.h"
@@ -16,6 +18,13 @@ const byte voiceCount = 16; // max = 16
 class Synth{
   
   private:
+    // Singleton
+    static Synth *instance;
+    Synth();
+
+    // Motherboard
+    Motherboard6 *device;
+    
     Voice *voices[voiceCount];
     byte actualVoiceCount = 1;
     byte synthesis;
@@ -33,8 +42,6 @@ class Synth{
     float shape;
     byte updateMillis = 10;
     elapsedMillis clockUpdate;
-
-    Motherboard6 *device;
     
     byte modeInputIndex = 0;
     byte parameterInputIndex = 1;
@@ -48,23 +55,26 @@ class Synth{
     AudioMixer4 *output;
     
   public:
-    Synth(Motherboard6 *device);
-
-    void noteOn(byte midiNote);
-    void noteOff(byte midiNote);
-    void stop();
+    static Synth *getInstance();
+    void init();
     void update();
+    static void noteOn(byte channel, byte note, byte velocity);
+    static void noteOff(byte channel, byte note, byte velocity);
+    static void stop();
     Voice **getVoices();
     AudioMixer4 * getOutput();
 
 };
 
+// Singleton pre init
+Synth * Synth::instance = nullptr;
+
 /**
  * Constructor
  */
-inline Synth::Synth(Motherboard6 *device){
+inline Synth::Synth(){
 
-  this->device = device;
+  this->device = Motherboard6::getInstance();
   
   this->synthesis = 0;
   this->attack = 10;
@@ -95,29 +105,54 @@ inline Synth::Synth(Motherboard6 *device){
   
 }
 
+/**
+ * Singleton instance
+ */
+inline static Synth *Synth::getInstance()    {
+  if (!instance)
+     instance = new Synth;
+  return instance;
+}
+
+/**
+ * Init
+ */
+inline void Synth::init(){
+  // 0 = empty, 1 = button, 2 = potentiometer, 3 = encoder
+  byte controls[9] = {2,2, 2,2, 2,2};
+  this->device->init(controls);
+
+  MIDI.setHandleNoteOn(noteOn);
+  MIDI.setHandleNoteOff(noteOff);
+  MIDI.begin(MIDI_CHANNEL_OMNI);
+  usbMIDI.setHandleNoteOn(noteOn);
+  usbMIDI.setHandleNoteOff(noteOff);
+  usbMIDI.setHandleStop(stop);
+  usbMIDI.setHandleSystemReset(stop);
+}
 
 /**
  * Note on
  */
-inline void Synth::noteOn(byte note){
+inline static void Synth::noteOn(byte channel, byte note, byte velocity){
   
   bool foundOne = false;
   int oldestVoice = 0;
   unsigned long oldestVoiceTime = 0;
   unsigned long currentTime = millis();
 
-  switch (modes(this->mode)){
+  switch (modes(getInstance()->mode)){
     case SYNTH: 
-      for (int i = 0; i < this->actualVoiceCount; i++) {
+      for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
         // Search for the oldest voice
-        if(this->voices[i]->last_played > oldestVoiceTime){
-          oldestVoiceTime = this->voices[i]->last_played;
+        if(getInstance()->voices[i]->last_played > oldestVoiceTime){
+          oldestVoiceTime = getInstance()->voices[i]->last_played;
           oldestVoice = i;
         }
         
         // Search for an inactive voice
-        if(!this->voices[i]->isActive()){
-          this->voices[i]->noteOn(note);
+        if(!getInstance()->voices[i]->isActive()){
+          getInstance()->voices[i]->noteOn(note);
           foundOne = true;
           break;
         }
@@ -125,64 +160,70 @@ inline void Synth::noteOn(byte note){
     
       // No inactive voice then will take over the oldest note
       if(!foundOne){
-        this->voices[oldestVoice]->noteOn(note);
+        getInstance()->voices[oldestVoice]->noteOn(note);
       }
     break;
     case ARP:
-      if(this->arpNotesPlaying < voiceCount){
-        this->arpNotesPlaying++;
+      if(getInstance()->arpNotesPlaying < voiceCount){
+        getInstance()->arpNotesPlaying++;
       }
-      this->arpNotes[this->arpNotesPlaying-1] = note;
+      getInstance()->arpNotes[getInstance()->arpNotesPlaying-1] = note;
     break;
     case DRONE:
       // In Drone mode, only one voice playing at a time
       for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->noteOff();
+        getInstance()->voices[i]->noteOff();
       }
-      this->voices[0]->noteOn(note);
+      getInstance()->voices[0]->noteOn(note);
     break;
   }
+  
+  getInstance()->device->setDisplay(0, 1);
 }
 
 /**
  * Note off
  */
-inline void Synth::noteOff(byte note){
-  switch(modes(this->mode)){
+inline static void Synth::noteOff(byte channel, byte note, byte velocity){
+  switch(modes(getInstance()->mode)){
     case SYNTH: 
       for (int i = 0; i < voiceCount ; i++) {
-        if(this->voices[i]->getCurrentNote() == note){
-          this->voices[i]->noteOff();
+        if(getInstance()->voices[i]->getCurrentNote() == note){
+          getInstance()->voices[i]->noteOff();
         }
       }
     break;
     case ARP:
       for (int i = 0; i < voiceCount ; i++) {
         // Finding the index where the note was in the array
-        if(this->arpNotes[i] == note){
-          this->voices[i]->noteOff();
+        if(getInstance()->arpNotes[i] == note){
+          getInstance()->voices[i]->noteOff();
           // Shifting the elemts after this index
           for (int j = i; j < voiceCount; ++j){
-            this->arpNotes[j] = this->arpNotes[j + 1];
+            getInstance()->arpNotes[j] = getInstance()->arpNotes[j + 1];
           }
         }
       }
 
       // Decreasing the number of playing notes
-      if(this->arpNotesPlaying > 0){
-        this->arpNotesPlaying--;
+      if(getInstance()->arpNotesPlaying > 0){
+        getInstance()->arpNotesPlaying--;
       }
     break;
   }
+  
+  getInstance()->device->setDisplay(0, 0);
 }
 
 /**
  * Stop all the voices
  */
-inline void Synth::stop(){
+inline static void Synth::stop(){
   for (int i = 0; i < voiceCount; i++) {
-    this->voices[i]->noteOff();
+    getInstance()->voices[i]->noteOff();
   }
+  
+  getInstance()->device->setDisplay(0, 0);
 }
 
 /**
@@ -197,6 +238,11 @@ inline AudioMixer4 * Synth::getOutput(){
  * Update
  */
 inline void Synth::update(){
+  this->device->update();
+  
+  MIDI.read();
+  usbMIDI.read();
+  
   if(this->clockUpdate > updateMillis){
     
     for (int i = 0; i < voiceCount ; i++) {
