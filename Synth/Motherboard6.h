@@ -30,7 +30,7 @@ class Motherboard6{
     byte *potentiometersReadings; 
     
     // Encoders 
-    byte *encoders;
+    int *encoders;
     bool *encodersSwitch;
     byte *encodersState;
     byte currentEncPinA;
@@ -78,7 +78,7 @@ class Motherboard6{
     // Inputs clock
     const unsigned int intervalInputs = 100;
     elapsedMicros clockInputs;
-//    void iterateRows();
+
     void updateDisplay();
     void iterateDisplay();
     void iterateInputs();
@@ -122,11 +122,12 @@ inline Motherboard6::Motherboard6(){
   this->potentiometers = new unsigned int[this->ioNumber];
   this->potentiometersTemp = new unsigned int[this->ioNumber];
   this->potentiometersReadings = new byte[this->ioNumber];
-  this->encoders = new byte[this->ioNumber];
+  this->encoders = new int[this->ioNumber];
   this->encodersState = new byte[this->ioNumber];
   this->encodersSwitch = new bool[this->ioNumber];
 
   for(byte i = 0; i < this->ioNumber; i++){
+    this->inputs[i] = 0;
     this->leds[i] = 0;
     this->ledsDuration[i] = 0;
     this->buttons[i] = true;
@@ -154,7 +155,6 @@ inline static Motherboard6 *Motherboard6::getInstance()    {
  */
 inline void Motherboard6::init(byte *inputs){
   // Init of the inputs
-  this->inputs = new byte[this->ioNumber];
   for(byte i = 0; i < this->ioNumber; i++){
     this->inputs[i] = inputs[i];
   }
@@ -178,7 +178,6 @@ inline void Motherboard6::init(byte *inputs){
   pinMode(22, INPUT_PULLUP);
 
   analogReadResolution(this->analogResolution);
-  
   this->readMidiChannel();
   
   // Init sequence
@@ -219,14 +218,13 @@ inline void Motherboard6::update(){
   }else{
     // Inputs
 
-    // At 2nd half of the clock we read the current input, leaving time to mux to switch
-    if (this->clockInputs > this->intervalInputs / 2) {
-      this->readCurrentInput();
-    }
     // At the end of the clock we iterate to next input
     if (this->clockInputs >= this->intervalInputs) {
       this->iterateInputs();
       this->clockInputs = 0;
+    }else{
+      // Reading the current input
+      this->readCurrentInput();
     }
   }
 
@@ -399,20 +397,6 @@ inline void Motherboard6::readCurrentInput(){
  * @param byte inputeIndex The index of the input
  */
 inline void Motherboard6::readButton(byte inputIndex){
-//  byte rowNumber = inputIndex / this->columnsNumber;
-//  if(rowNumber == this->currentRow){
-//    byte columnNumber = inputIndex % this->columnsNumber;
-//    this->buttons[inputIndex] = !digitalRead(11 + columnNumber);
-//    
-//    if(this->buttons[inputIndex]){
-//      for(byte j = 0; j < this->ioNumber; j++){
-//        Serial.print (this->buttons[j]);
-//        Serial.print (" ");
-//      }
-//      Serial.println("");
-//    }
-//  }
-
   this->setMainMuxOnEncoders2();
   
   byte rowNumber = inputIndex / this->columnsNumber;
@@ -473,16 +457,15 @@ inline void Motherboard6::readEncoder(byte inputIndex){
   // Activating the right row in the matrix
   byte rowNumber = inputIndex / this->columnsNumber;
 
-  for(byte i = 0; i < 3; i++){
-    if(i == rowNumber){
-      digitalWrite(15 + i, LOW);
-    }else{
-      digitalWrite(15 + i, HIGH);
-    }
-  }
-
   // Setting the main multiplexer on encoders
-  if(this->clockInputs < this->intervalInputs / 1.80){
+  if(this->clockInputs < this->intervalInputs / 10){
+    for(byte i = 0; i < 3; i++){
+      if(i == rowNumber){
+        digitalWrite(15 + i, LOW);
+      }else{
+        digitalWrite(15 + i, HIGH);
+      }
+    }
     this->setMainMuxOnEncoders1();
   }
 
@@ -492,8 +475,8 @@ inline void Motherboard6::readEncoder(byte inputIndex){
   byte muxPinB = columnNumber * 2 + 1;
 
   // Giving time for the multiplexer to switch to Pin A 
-  if(this->clockInputs > this->intervalInputs / 1.80
-  && this->clockInputs < this->intervalInputs / 1.60) {
+  if(this->clockInputs > this->intervalInputs / 10
+  && this->clockInputs < this->intervalInputs / 6) {
     byte r0 = bitRead(muxPinA, 0);   
     byte r1 = bitRead(muxPinA, 1);    
     byte r2 = bitRead(muxPinA, 2);
@@ -504,9 +487,9 @@ inline void Motherboard6::readEncoder(byte inputIndex){
     this->currentEncPinA = digitalRead(22);
   }
   
-  // Giving time for the multiplexer to switch to Pin B
-  if(this->clockInputs > this->intervalInputs / 1.60
-  && this->clockInputs < this->intervalInputs / 1.40){
+   // Giving time for the multiplexer to switch to Pin B
+  if(this->clockInputs > this->intervalInputs / 6
+  && this->clockInputs < this->intervalInputs / 2){
     int r0 = bitRead(muxPinB, 0);   
     int r1 = bitRead(muxPinB, 1);    
     int r2 = bitRead(muxPinB, 2);
@@ -518,14 +501,15 @@ inline void Motherboard6::readEncoder(byte inputIndex){
   }
 
   // When reading of Pin A and B is done we can interpret the result
-  if (this->clockInputs > this->intervalInputs / 1.40
-  && this->clockInputs < this->intervalInputs / 1.20) {
+  if (this->clockInputs > this->intervalInputs / 2
+  && this->clockInputs < this->intervalInputs / 1.5) {
     
     byte pinstate = (this->currentEncPinB << 1) | this->currentEncPinA;
     // Determine new state from the pins and state table.
     this->encodersState[inputIndex] = this->ttable[this->encodersState[inputIndex] & 0xf][pinstate];
     // Return emit bits, ie the generated event.
     byte result = this->encodersState[inputIndex] & 0x30;
+
     if (result == DIR_CW) {
       this->encoders[inputIndex]--;
     } else if (result == DIR_CCW) {
@@ -543,20 +527,9 @@ inline void Motherboard6::readEncoder(byte inputIndex){
   }
 
   // Giving time for the multiplexer to switch to Pin B
-  if (this->clockInputs > this->intervalInputs / 1.20){
+  if (this->clockInputs > this->intervalInputs / 1.5){
     this->encodersSwitch[inputIndex] = digitalRead(22);
   }
-    
-//    this->encodersSwitch[inputIndex] = !digitalRead(pinC);
-          
-//    if(this->encodersSwitch[inputIndex]){
-//      for(byte j = 0; j < this->ioNumber; j++){
-//          Serial.print (this->encodersSwitch[j]);
-//          Serial.print (" ");
-//        }
-//        Serial.println("");
-//    }
-//  }
 }
 
 inline void Motherboard6::readMidiChannel(){
