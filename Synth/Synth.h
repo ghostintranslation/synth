@@ -124,7 +124,7 @@ inline void Synth::init(){
 
   MIDI.setHandleNoteOn(noteOn);
   MIDI.setHandleNoteOff(noteOff);
-  MIDI.begin(MIDI_CHANNEL_OMNI);
+  MIDI.begin(this->device->getMidiChannel());
   usbMIDI.setHandleNoteOn(noteOn);
   usbMIDI.setHandleNoteOff(noteOff);
   usbMIDI.setHandleStop(stop);
@@ -240,8 +240,8 @@ inline AudioMixer4 * Synth::getOutput(){
 inline void Synth::update(){
   this->device->update();
   
-  MIDI.read();
-  usbMIDI.read();
+  MIDI.read(this->device->getMidiChannel());
+  usbMIDI.read(this->device->getMidiChannel());
   
   if(this->clockUpdate > updateMillis){
     
