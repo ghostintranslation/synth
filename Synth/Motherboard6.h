@@ -118,6 +118,7 @@ inline Motherboard6::Motherboard6(){
   this->ioNumber = 3*this->columnsNumber;
 
   this->leds = new byte[this->ioNumber];
+  this->ledsDuration = new unsigned int[this->ioNumber];
   this->buttons = new bool[this->ioNumber];
   this->potentiometers = new unsigned int[this->ioNumber];
   this->potentiometersTemp = new unsigned int[this->ioNumber];
