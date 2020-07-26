@@ -3,6 +3,9 @@
 /__|_|/ \(_  |     | |\|    | |_)|_||\|(_ |  |_| |  | / \|\|
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
+SYNTH
+v1.0.0
+
 If you enjoy my work and music please consider donating.
 
 https://www.ghostintranslation.com/

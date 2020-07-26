@@ -108,7 +108,7 @@ inline Synth::Synth(){
 /**
  * Singleton instance
  */
-inline static Synth *Synth::getInstance()    {
+inline Synth *Synth::getInstance()    {
   if (!instance)
      instance = new Synth;
   return instance;
@@ -134,13 +134,12 @@ inline void Synth::init(){
 /**
  * Note on
  */
-inline static void Synth::noteOn(byte channel, byte note, byte velocity){
+inline void Synth::noteOn(byte channel, byte note, byte velocity){
   
   bool foundOne = false;
   int oldestVoice = 0;
   unsigned long oldestVoiceTime = 0;
-  unsigned long currentTime = millis();
-
+  
   switch (modes(getInstance()->mode)){
     case SYNTH: 
       for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
@@ -178,13 +177,13 @@ inline static void Synth::noteOn(byte channel, byte note, byte velocity){
     break;
   }
   
-  getInstance()->device->setDisplay(0, 1);
+  getInstance()->device->setLED(0, 1);
 }
 
 /**
  * Note off
  */
-inline static void Synth::noteOff(byte channel, byte note, byte velocity){
+inline void Synth::noteOff(byte channel, byte note, byte velocity){
   switch(modes(getInstance()->mode)){
     case SYNTH: 
       for (int i = 0; i < voiceCount ; i++) {
@@ -210,20 +209,23 @@ inline static void Synth::noteOff(byte channel, byte note, byte velocity){
         getInstance()->arpNotesPlaying--;
       }
     break;
+
+    default:
+    break;
   }
   
-  getInstance()->device->setDisplay(0, 0);
+  getInstance()->device->setLED(0, 0);
 }
 
 /**
  * Stop all the voices
  */
-inline static void Synth::stop(){
+inline void Synth::stop(){
   for (int i = 0; i < voiceCount; i++) {
     getInstance()->voices[i]->noteOff();
   }
   
-  getInstance()->device->setDisplay(0, 0);
+  getInstance()->device->setLED(0, 0);
 }
 
 /**
@@ -356,7 +358,7 @@ inline void Synth::update(){
     } 
   
     // Attack
-    int attack = map(this->device->getInput(this->attackInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
+    unsigned int attack = map(this->device->getInput(this->attackInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
     
     if(this->attack != attack){
       this->attack = attack;
@@ -367,7 +369,7 @@ inline void Synth::update(){
   
   
     // Release
-    int release = map(this->device->getInput(this->releaseInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
+    unsigned int release = map(this->device->getInput(this->releaseInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
   
     if(this->release != release){
       this->release = release;

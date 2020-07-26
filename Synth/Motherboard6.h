@@ -3,6 +3,7 @@
 
 /*
  * Motherboard6
+ * v1.0.0
  */
 class Motherboard6{
   
@@ -79,6 +80,15 @@ class Motherboard6{
     const unsigned int intervalInputs = 100;
     elapsedMicros clockInputs;
 
+    // Callbacks
+    using PressCallback = void (*)(void);
+    PressCallback *inputsPressCallback;
+    using LongPressCallback = void (*)(void);
+    LongPressCallback *inputsLongPressCallback;
+    elapsedMillis *inputsPressTime;
+    using RotaryChangeCallback = void (*)(bool);
+    RotaryChangeCallback *inputsRotaryChangeCallback;
+    
     void updateDisplay();
     void iterateDisplay();
     void iterateInputs();
@@ -99,13 +109,20 @@ class Motherboard6{
     static Motherboard6 *getInstance();
     void init(byte *inputs);
     void update();
-    void setDisplay(byte ledIndex, byte ledStatus);
-    void resetDisplay();
+    void setLED(byte ledIndex, byte ledStatus);
+    void setAllLED(unsigned int binary, byte ledStatus);  
+    void toggleLED(byte index);
+    void resetAllLED();
     int getInput(byte index);
     int getEncoderSwitch(byte index);
     int getAnalogMaxValue();
     int getAnalogMinValue();
     byte getMidiChannel();
+
+    // Callbacks
+    void setHandlePress(byte inputIndex, PressCallback fptr);
+    void setHandleLongPress(byte inputIndex, LongPressCallback fptr);
+    void setHandleRotaryChange(byte inputIndex, RotaryChangeCallback fptr);
 };
 
 // Instance pre init
@@ -127,6 +144,10 @@ inline Motherboard6::Motherboard6(){
   this->encoders = new int[this->ioNumber];
   this->encodersState = new byte[this->ioNumber];
   this->encodersSwitch = new bool[this->ioNumber];
+  this->inputsPressCallback = new PressCallback[this->ioNumber];
+  this->inputsLongPressCallback = new PressCallback[this->ioNumber];
+  this->inputsPressTime = new elapsedMillis[this->ioNumber];
+  this->inputsRotaryChangeCallback = new RotaryChangeCallback[this->ioNumber];
 
   for(byte i = 0; i < this->ioNumber; i++){
     this->inputs[i] = 0;
@@ -139,6 +160,10 @@ inline Motherboard6::Motherboard6(){
     this->encoders[i] = 0;
     this->encodersState[i] = 0;
     this->encodersSwitch[i] = true;
+    this->inputsPressCallback[i] = nullptr;
+    this->inputsLongPressCallback[i] = nullptr;
+    this->inputsPressTime[i] = 0;
+    this->inputsRotaryChangeCallback[i] = nullptr;
   }
 
 }
@@ -146,7 +171,7 @@ inline Motherboard6::Motherboard6(){
 /**
  * Singleton instance
  */
-inline static Motherboard6 *Motherboard6::getInstance()    {
+inline Motherboard6 *Motherboard6::getInstance()    {
   if (!instance)
      instance = new Motherboard6;
   return instance;
@@ -184,12 +209,12 @@ inline void Motherboard6::init(byte *inputs){
   
   // Init sequence
   for(byte i = 0; i<this->ioNumber; i++){
-    this->setDisplay(i, 1);
+    this->setLED(i, 1);
     this->iterateDisplay();
     this->updateDisplay();
     delay(50);
   }
-  this->resetDisplay();
+  this->resetAllLED();
   this->updateDisplay();
 }
 
@@ -232,7 +257,7 @@ inline void Motherboard6::update(){
 
   // Debug
   if (this->clockDebug >= 100) {
-    this->printInputs();
+//    this->printInputs();
 //    this->printLeds();
     this->clockDebug = 0;
   }
@@ -420,7 +445,52 @@ inline void Motherboard6::readButton(byte inputIndex){
   digitalWrite(9, r1);
   digitalWrite(14, r2);
 
-  this->buttons[inputIndex] = digitalRead(22);
+  // Giving some time to the Mux and pins to switch
+  if (this->clockInputs > this->intervalInputs / 1.5) {
+    
+    // Reading the new value
+    bool newReading = digitalRead(22);
+
+    // If there is a short or a long press callback on that input
+    if(this->inputsPressCallback[inputIndex] != nullptr ||
+       this->inputsLongPressCallback[inputIndex] != nullptr){
+        
+      // Inverted logic, 0 = button pushed
+      // If previous value is not pushed and now is pushed
+      // So if it's pushed
+      if(this->buttons[inputIndex] && !newReading){ 
+        // Start the counter of that input
+        this->inputsPressTime[inputIndex] = 0;
+      }
+
+      // If it's released
+      if(!this->buttons[inputIndex] && newReading){ 
+        // How long was it pressed
+        if(this->inputsPressTime[inputIndex] < 200){
+          // Short press
+          
+          // If there is a short press callback on that input
+          if(this->inputsPressCallback[inputIndex] != nullptr){
+            this->inputsPressCallback[inputIndex]();
+          }
+        }else{
+          // Long press
+          
+          // If there is a long press callback on that input
+          if(this->inputsLongPressCallback[inputIndex] != nullptr){
+            this->inputsLongPressCallback[inputIndex]();
+          }else if(this->inputsPressCallback[inputIndex] != nullptr){
+            // If the input was pressed for a long time but there is only a short press callback
+            // the short press callback should still be called
+            this->inputsPressCallback[inputIndex]();
+          }
+        }
+      }
+    }
+  
+    // Updating the value
+    this->buttons[inputIndex] = newReading;
+  }
 }
 
 
@@ -444,7 +514,7 @@ inline void Motherboard6::readPotentiometer(byte inputIndex){
   if(this->potentiometersReadings[inputIndex] == 255){
     this->potentiometers[inputIndex] = this->potentiometersTemp[inputIndex] / 255; 
     this->potentiometers[inputIndex] = map(this->potentiometers[inputIndex], this->getAnalogMinValue(), this->getAnalogMaxValue(), 0, 1023);
-    this->potentiometers[inputIndex] = constrain(this->potentiometers[inputIndex], 0, 1023);
+    this->potentiometers[inputIndex] = constrain(this->potentiometers[inputIndex], (unsigned int)0, (unsigned int)1023);
     this->potentiometersReadings[inputIndex] = 0;
     this->potentiometersTemp[inputIndex] = 0;
   }
@@ -513,9 +583,19 @@ inline void Motherboard6::readEncoder(byte inputIndex){
     byte result = this->encodersState[inputIndex] & 0x30;
 
     if (result == DIR_CW) {
-      this->encoders[inputIndex]--;
+//      this->encoders[inputIndex]--;
+      
+      // Calling the decrement callback if there is one
+      if(this->inputsRotaryChangeCallback[inputIndex] != nullptr){
+        this->inputsRotaryChangeCallback[inputIndex](false);
+      }
     } else if (result == DIR_CCW) {
-      this->encoders[inputIndex]++;
+//      this->encoders[inputIndex]++;
+      
+      // Calling the decrement callback if there is one
+      if(this->inputsRotaryChangeCallback[inputIndex] != nullptr){
+        this->inputsRotaryChangeCallback[inputIndex](true);
+      }
     }
 
     // Setting the main multiplexer on encoder's buttons
@@ -529,8 +609,51 @@ inline void Motherboard6::readEncoder(byte inputIndex){
   }
 
   // Giving time for the multiplexer to switch to Pin B
-  if (this->clockInputs > this->intervalInputs / 1.5){
-    this->encodersSwitch[inputIndex] = digitalRead(22);
+if (this->clockInputs > this->intervalInputs / 1.5) {
+//    this->encodersSwitch[inputIndex] = digitalRead(22);
+
+    // Reading the new value
+    bool newReading = digitalRead(22);
+  
+    // If there is a short or a long press callback on that input
+    if(this->inputsPressCallback[inputIndex] != nullptr ||
+       this->inputsLongPressCallback[inputIndex] != nullptr){
+        
+      // Inverted logic, 0 = button pushed
+      // If previous value is not pushed and now is pushed
+      // So if it's pushed
+      if(this->encodersSwitch[inputIndex] && !newReading){ 
+        // Start the counter of that input
+        this->inputsPressTime[inputIndex] = 0;
+      }
+
+      // If it's released
+      if(!this->encodersSwitch[inputIndex] && newReading){ 
+        // How long was it pressed
+        if(this->inputsPressTime[inputIndex] < 200){
+          // Short press
+          
+          // If there is a short press callback on that input
+          if(this->inputsPressCallback[inputIndex] != nullptr){
+            this->inputsPressCallback[inputIndex]();
+          }
+        }else{
+          // Long press
+          
+          // If there is a long press callback on that input
+          if(this->inputsLongPressCallback[inputIndex] != nullptr){
+            this->inputsLongPressCallback[inputIndex]();
+          }else if(this->inputsPressCallback[inputIndex] != nullptr){
+            // If the input was pressed for a long time but there is only a short press callback
+            // the short press callback should still be called
+            this->inputsPressCallback[inputIndex]();
+          }
+        }
+      }
+    }
+  
+    // Updating the value
+    this->encodersSwitch[inputIndex] = newReading;
   }
 }
 
@@ -556,22 +679,49 @@ inline void Motherboard6::readMidiChannel(){
 /**
  * Set a led status
  */
-inline void Motherboard6::setDisplay(byte ledIndex, byte ledStatus){
+inline void Motherboard6::setLED(byte ledIndex, byte ledStatus){
   this->leds[ledIndex] = ledStatus;
 }
 
 
+
 /**
- * Reset LEDs
+ * Set all LEDs 
  */
-inline void Motherboard6::resetDisplay(){
-  for(byte i = 0; i < this->ioNumber; i++){
-    if(this->leds[i] != 4){
+inline void Motherboard6::setAllLED(unsigned int binary, byte ledStatus) {
+  unsigned int n = binary;
+  
+  for (byte i = 0; i < this->ioNumber; i++) {
+    if(n & 1){
+      this->setLED(i, ledStatus);
+    }else{
+      this->setLED(i, 0);
+    }
+    n /= 2;
+  }
+}
+
+/**
+ * Toggle one LED
+ */
+inline void Motherboard6::toggleLED(byte index) {
+  if(this->leds[index] > 0){
+    this->leds[index] = 0;
+  }else{
+    this->leds[index] = 1;
+  }
+}
+
+/**
+ * Reset all LEDs
+ */
+inline void Motherboard6::resetAllLED() {
+  for (byte i = 0; i < this->ioNumber; i++) {
+    if (this->leds[i] != 4) {
       this->leds[i] = 0;
     }
   }
 }
-
 
 /**
  * Get input value
@@ -626,6 +776,36 @@ inline int Motherboard6::getAnalogMaxValue(){
 
 inline byte Motherboard6::getMidiChannel(){ 
   return this->midiChannel;
+}
+
+/**
+ * Handle press on a button
+ */
+inline void Motherboard6::setHandlePress(byte inputIndex, PressCallback fptr){
+  // Press can only happen on a button and an encoder's switch
+  if(this->inputs[inputIndex] == 1 || this->inputs[inputIndex] == 3){
+    this->inputsPressCallback[inputIndex] = fptr;
+  }
+}
+
+/**
+ * Handle long press on a button
+ */
+inline void Motherboard6::setHandleLongPress(byte inputIndex, LongPressCallback fptr){
+  // Press can only happen on a button and an encoder's switch
+  if(this->inputs[inputIndex] == 1 || this->inputs[inputIndex] == 3){
+    this->inputsLongPressCallback[inputIndex] = fptr;
+  }
+}
+
+/**
+ * Handle rotary
+ */
+inline void Motherboard6::setHandleRotaryChange(byte inputIndex, RotaryChangeCallback fptr){
+  // Only for rotaries
+  if(this->inputs[inputIndex] == 3){
+    this->inputsRotaryChangeCallback[inputIndex] = fptr;
+  }
 }
 
 /**
