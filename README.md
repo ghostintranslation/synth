@@ -1,10 +1,12 @@
 # SYNTH
 
+![GitHub version](https://img.shields.io/github/v/release/ghostintranslation/synth.svg?include_prereleases)
+
 SYNTH is a modular FM polyphonic synthesizer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
 
 It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6).
 
-NOTE: This is a work in progress.
+I sell the PCBs and front panel if you wish to build SYNTH. You can get them here: https://ghostintranslation.bandcamp.com/merch/synth-panel-and-pcb
 
 <img src="synth.jpg" width="200px"/> <img src="synth-side.jpg" width="200px"/>
 
