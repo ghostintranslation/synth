@@ -61,9 +61,15 @@ class Synth{
     static void noteOn(byte channel, byte note, byte velocity);
     static void noteOff(byte channel, byte note, byte velocity);
     static void stop();
-    Voice **getVoices();
     AudioMixer4 * getOutput();
-
+    
+    // Callbacks
+    static void onModeChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onParamChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onFmChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious);
 };
 
 // Singleton pre init
@@ -129,6 +135,14 @@ inline void Synth::init(){
   usbMIDI.setHandleNoteOff(noteOff);
   usbMIDI.setHandleStop(stop);
   usbMIDI.setHandleSystemReset(stop);
+
+  // Device callbacks
+  this->device->setHandlePotentiometerChange(0, onModeChange);
+  this->device->setHandlePotentiometerChange(1, onParamChange);
+  this->device->setHandlePotentiometerChange(2, onShapeChange);
+  this->device->setHandlePotentiometerChange(3, onFmChange);
+  this->device->setHandlePotentiometerChange(4, onAttackChange);
+  this->device->setHandlePotentiometerChange(5, onReleaseChange);
 }
 
 /**
@@ -251,76 +265,6 @@ inline void Synth::update(){
       this->voices[i]->update();
     }
 
-    // Mode
-    byte mode = (byte)constrain(map(this->device->getInput(this->modeInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2), 0, 2);
-    bool monoPoly = map(this->device->getInput(this->modeInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue() / 3, 0, 1);
-    
-    // A little addition to the SYNTH mode
-    // Mono and Poly modes
-    if(monoPoly > 0){
-      this->actualVoiceCount = 16;
-    }else{
-      this->actualVoiceCount = 1;
-    }
-    
-    if(this->mode != mode){
-      this->mode = mode;
-      
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setMode(mode);
-      }
-  
-      if(modes(this->mode) == DRONE){
-        this->mixers[0]->gain(0, 0.6 );
-        this->mixers[0]->gain(1, 0 );
-        this->mixers[0]->gain(2, 0 );
-        this->mixers[0]->gain(3, 0 );
-        this->output->gain(0, 1 );
-        this->output->gain(1, 0 );
-        this->output->gain(2, 0 );
-        this->output->gain(3, 0 );
-      }else{
-        this->mixers[0]->gain(0, 0.6 );
-        this->mixers[0]->gain(1, 0.6 );
-        this->mixers[0]->gain(2, 0.6 );
-        this->mixers[0]->gain(3, 0.6 );
-        this->output->gain(0, 1 );
-        this->output->gain(1, 1 );
-        this->output->gain(2, 1 );
-        this->output->gain(3, 1 );
-      }
-    }
-  
-    // Parameter
-    int parameter = this->device->getInput(this->parameterInputIndex);
-  
-    if(this->parameter != parameter){
-      this->parameter = parameter;
-      
-      switch(modes(this->mode)){
-        case SYNTH:
-        {
-          // Glide
-          int voiceGlide = constrain(map(parameter, this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 255), 0, 255);
-
-          for (int i = 0; i < voiceCount ; i++) {
-            this->voices[i]->setGlide(voiceGlide);
-          }
-        }
-        break;
-        case ARP: 
-          // Time
-          this->arpTime = map(parameter, this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 1, 500);
-        break;
-        case DRONE: 
-          // Free frequency
-          for (int i = 0; i < voiceCount ; i++) {
-            this->voices[i]->setFrequencyTarget(parameter);
-          }
-        break;
-      }
-    }
-  
     // Arp
     if(modes(this->mode) == ARP){
       if (this->elapsedTime >= this->arpTime) {
@@ -338,89 +282,218 @@ inline void Synth::update(){
         this->elapsedTime = 0;
       }
     }
-      
-    
-    // Shape
-    float shape = (float)map(
-      (float)this->device->getInput(
-      this->shapeInputIndex), 
-      this->device->getAnalogMinValue(), 
-      this->device->getAnalogMaxValue(),
-      0,
-      1
-    );
-    
-    if(this->shape != shape){
-      this->shape = shape;
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setShape(shape);
-      }
-    } 
-  
-    // Attack
-    unsigned int attack = map(this->device->getInput(this->attackInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
-    
-    if(this->attack != attack){
-      this->attack = attack;
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setAttack(attack);
-      }
-    }
-  
-  
-    // Release
-    unsigned int release = map(this->device->getInput(this->releaseInputIndex), this->device->getAnalogMinValue(), this->device->getAnalogMaxValue(), 0, 2000);
-  
-    if(this->release != release){
-      this->release = release;
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setRelease(release);
-      }
-    }
-  
-    // FM
-    int fm = this->device->getInput(this->fmInputIndex);
-    int modulatorFrequency = 0;
-    float modulatorAmplitude = 0;
-    
-    if(fm < this->device->getAnalogMaxValue() / 3){
-      modulatorFrequency = map(fm, 0, this->device->getAnalogMaxValue() / 2, 0, 10);
-      modulatorAmplitude = (float)map((float)fm, 0, this->device->getAnalogMaxValue() / 2, 0.001, .01);
-    }
-    else if(fm >= this->device->getAnalogMaxValue() / 3 && fm < this->device->getAnalogMaxValue() / 2){
-      modulatorFrequency = map(fm, 0, this->device->getAnalogMaxValue() / 2, 0, 40);
-      modulatorAmplitude = (float)map((float)fm, 0, this->device->getAnalogMaxValue() / 2, 0.001, .01);
-    }else{
-      modulatorFrequency = map(fm, this->device->getAnalogMaxValue() / 2, this->device->getAnalogMaxValue(), 0, 1000);
-      modulatorAmplitude = (float)map((float)fm, this->device->getAnalogMaxValue() / 2, this->device->getAnalogMaxValue(), 0, .5);
-    }
-    
-    if(this->modulatorFrequency != modulatorFrequency){
-      this->modulatorFrequency = modulatorFrequency;
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setModulatorFrequency(modulatorFrequency);
-      }
-    }
-    if(fm > 50){
-      if(this->modulatorAmplitude != modulatorAmplitude){
-        this->modulatorAmplitude = modulatorAmplitude;
-        for (int i = 0; i < voiceCount ; i++) {
-          this->voices[i]->setModulatorAmplitude(modulatorAmplitude);
-        }
-      }
-    }else{
-      for (int i = 0; i < voiceCount ; i++) {
-        this->voices[i]->setModulatorAmplitude(0);
-      }
-    }
-
     
     this->clockUpdate = 0;
   }
 }
 
-inline Voice** Synth::getVoices(){
-  return this->voices;
+
+/**
+ * On Mode Change
+ */
+inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  byte mode = (byte)constrain(
+    map(
+      value,
+      getInstance()->device->getAnalogMinValue(),
+      getInstance()->device->getAnalogMaxValue(), 
+      0, 
+      2
+    ),
+    0,
+    2
+  );
+  
+  bool monoPoly = map(
+    value,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue() / 3,
+    0,
+    1
+  );
+  
+  // A little addition to the SYNTH mode
+  // Mono and Poly modes
+  if(monoPoly > 0){
+    getInstance()->actualVoiceCount = 16;
+  }else{
+    getInstance()->actualVoiceCount = 1;
+  }
+  
+  getInstance()->mode = mode;
+  
+  for (int i = 0; i < voiceCount ; i++) {
+    getInstance()->voices[i]->setMode(mode);
+  }
+
+  if(modes(getInstance()->mode) == DRONE){
+    getInstance()->mixers[0]->gain(0, 0.6 );
+    getInstance()->mixers[0]->gain(1, 0 );
+    getInstance()->mixers[0]->gain(2, 0 );
+    getInstance()->mixers[0]->gain(3, 0 );
+    getInstance()->output->gain(0, 1 );
+    getInstance()->output->gain(1, 0 );
+    getInstance()->output->gain(2, 0 );
+    getInstance()->output->gain(3, 0 );
+  }else{
+    getInstance()->mixers[0]->gain(0, 0.6 );
+    getInstance()->mixers[0]->gain(1, 0.6 );
+    getInstance()->mixers[0]->gain(2, 0.6 );
+    getInstance()->mixers[0]->gain(3, 0.6 );
+    getInstance()->output->gain(0, 1 );
+    getInstance()->output->gain(1, 1 );
+    getInstance()->output->gain(2, 1 );
+    getInstance()->output->gain(3, 1 );
+  }
+}
+
+
+
+/**
+ * On Param Change
+ */
+inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  getInstance()->parameter = value;
+  
+  switch(modes(getInstance()->mode)){
+    case SYNTH:
+    {
+      // Glide
+      int voiceGlide = constrain(
+        map(
+          value,
+          getInstance()->device->getAnalogMinValue(),
+          getInstance()->device->getAnalogMaxValue(),
+          0,
+          255
+        ),
+        0,
+        255
+      );
+
+      for (int i = 0; i < voiceCount ; i++) {
+        getInstance()->voices[i]->setGlide(voiceGlide);
+      }
+    }
+    break;
+    
+    case ARP: 
+      // Time
+      getInstance()->arpTime = map(
+        value,
+        getInstance()->device->getAnalogMinValue(),
+        getInstance()->device->getAnalogMaxValue(),
+        1,
+        500
+      );
+    break;
+    
+    case DRONE: 
+      // Free frequency
+      for (int i = 0; i < voiceCount ; i++) {
+        getInstance()->voices[i]->setFrequencyTarget(value);
+      }
+    break;
+  }
+}
+
+
+
+/**
+ * On Shape Change
+ */
+inline void Synth::onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  // Shape
+  float shape = (float)map(
+    (float)value, 
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue(),
+    0,
+    1
+  );
+    
+  for (int i = 0; i < voiceCount ; i++) {
+    getInstance()->voices[i]->setShape(shape);
+  }
+}
+
+
+/**
+ * On FM Change
+ */
+inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  int modulatorFrequency = 0;
+  float modulatorAmplitude = 0;
+  
+  if(value < getInstance()->device->getAnalogMaxValue() / 3){
+    modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 10);
+    modulatorAmplitude = (float)map((float)value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+  }
+  else if(value >= getInstance()->device->getAnalogMaxValue() / 3 && value < getInstance()->device->getAnalogMaxValue() / 2){
+    modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 40);
+    modulatorAmplitude = (float)map((float)value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+  }else{
+    modulatorFrequency = map(value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, 1000);
+    modulatorAmplitude = (float)map((float)value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, .5);
+  }
+  
+  if(getInstance()->modulatorFrequency != modulatorFrequency){
+    getInstance()->modulatorFrequency = modulatorFrequency;
+    for (int i = 0; i < voiceCount ; i++) {
+      getInstance()->voices[i]->setModulatorFrequency(modulatorFrequency);
+    }
+  }
+  
+  if(value > 50){
+    if(getInstance()->modulatorAmplitude != modulatorAmplitude){
+      getInstance()->modulatorAmplitude = modulatorAmplitude;
+      for (int i = 0; i < voiceCount ; i++) {
+        getInstance()->voices[i]->setModulatorAmplitude(modulatorAmplitude);
+      }
+    }
+  }else{
+    for (int i = 0; i < voiceCount ; i++) {
+      getInstance()->voices[i]->setModulatorAmplitude(0);
+    }
+  }
+}
+
+/**
+ * On Attack Change
+ */
+inline void Synth::onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  unsigned int attack = map(
+    value,
+    getInstance()->device->getAnalogMinValue(),
+    getInstance()->device->getAnalogMaxValue(),
+    0,
+    2000
+  );
+  
+  getInstance()->attack = attack;
+  
+  for (int i = 0; i < voiceCount ; i++) {
+    getInstance()->voices[i]->setAttack(attack);
+  }
+}
+
+/**
+ * On Release Change
+ */
+inline void Synth::onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  unsigned int release = map(
+    value, 
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue(),
+    0,
+    2000
+  );
+
+  getInstance()->release = release;
+  
+  for (int i = 0; i < voiceCount ; i++) {
+    getInstance()->voices[i]->setRelease(release);
+  }
 }
 
 #endif
