@@ -72,6 +72,7 @@ Note:
 12. Add the multiplexers on the sockets, connect the 2 boards and connect the Teensy and audio board
 
 Note: Be careful how you place the potentiometers:
+
 <img src="https://github.com/ghostintranslation/motherboard6/blob/master/input-traces.png" width="200px"/>
 
 ### Firmware
