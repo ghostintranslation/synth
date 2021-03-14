@@ -39,9 +39,11 @@ What things you need to make it work:
 1 MOTHERBOARD6A pcb
 1 MOTHERBOARD6B pcb
 1 SYNTH front panel pcb
-6 vertical linear 10k potentiometers
-3 14 pins male header
+6 vertical linear 10k potentiometers with their nuts
+1 5 pins male header
+5 14 pins male header
 5 14 pins female header
+2 14 pins long female header
 4 CD4051 multiplexers
 4 DIP16 IC sockets (optional)
 2 3.5mm jack connectors
@@ -58,15 +60,15 @@ Note:
 
 ### Assembly
 
-1. Solder male headers on the audio board
-2. Solder long female header on Teensy
-3. Solder the male headers on MOTHERBOARD6A
+1. Solder male 14 pins headers on the audio board
+2. Solder 14 pins long female header and 5 pins male header on Teensy
+3. Solder 14 pins male headers on MOTHERBOARD6A
 4. Place the potentiometers and LEDs on MOTHERBOARD6A, and attach the front panel
 5. Solder the potentiometers and the LEDs
 6. Place the female headers for the Teensy on MOTHERBOARD6B, insert the Teensy on them, then solder the headers
 7. Detach the Teensy for now
 8. Solder the jack connectors, the dipswitch and the resistor on MOTHERBOARD6B
-9. Place the other female headers on MOTHERBOARD6B, connect MOTHERBOARD6A on them, then solder the headers
+9. Place 14 pins female headers on MOTHERBOARD6B, connect MOTHERBOARD6A on them, then solder the headers
 10. Detach the boards for now
 11. Solder IC sockets on IC1, IC2, IC5 and IC6 positions on MOTHERBOARD6B
 12. Add the multiplexers on the sockets, connect the 2 boards and connect the Teensy and audio board
