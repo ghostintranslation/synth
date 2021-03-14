@@ -43,24 +43,47 @@ What things you need to make it work:
 3 14 pins male header
 5 14 pins female header
 4 CD4051 multiplexers
-4 DIP16 IC sockets (optionak)
+4 DIP16 IC sockets (optional)
 2 3.5mm jack connectors
 1 resistor ~ 22ohm
-1 LED
+2 LED
 1 4 positions dipswitch (optional)
 ```
 
-I personally get these parts from multiple stores: digikey.com, thonk.co.uk, modularaddict.com
+Here is a list of useful links to get these parts: https://github.com/ghostintranslation/parts
 
-In order to run any sketch on the Teensy you have to install the Teensyduino add-on to Arduino.
+Note: 
+- The resistor doesn't need to be high because the multiplexers already are resistive, so try a few values. You can place the resistor and LEDs without soldering to test, there should be enough contact.
+- The dipswitch is optional, without it the module will listen to channel 1.
+
+### Assembly
+
+1. Solder male headers on the audio board
+2. Solder long female header on Teensy
+3. Solder the male headers on MOTHERBOARD6A
+4. Place the potentiometers and LEDs on MOTHERBOARD6A, and attach the front panel
+5. Solder the potentiometers and the LEDs
+6. Place the female headers for the Teensy on MOTHERBOARD6B, insert the Teensy on them, then solder the headers
+7. Detach the Teensy for now
+8. Solder the jack connectors, the dipswitch and the resistor on MOTHERBOARD6B
+9. Place the other female headers on MOTHERBOARD6B, connect MOTHERBOARD6A on them, then solder the headers
+10. Detach the boards for now
+11. Solder IC sockets on IC1, IC2, IC5 and IC6 positions on MOTHERBOARD6B
+12. Add the multiplexers on the sockets, connect the 2 boards and connect the Teensy and audio board
+
+Note: Be careful how you place the potentiometers:
+<img src="https://github.com/ghostintranslation/motherboard6/blob/master/input-traces.png" width="200px"/>
+
+### Firmware
+
+In order to run any sketch on the Teensy you have to install Arduino and the Teensyduino add-on.
 Follow the instructions from the official page:
 https://www.pjrc.com/teensy/teensyduino.html
 
-Then open the sketch located in the Synth folder of this repo.
-
-In the Tools -> USB Type menu, choose "Serial + midi".
-
-Then you are ready to compile and upload the sketch.
+1. Then open `Synth.ino` located in the `Synth` folder of this repo.
+2. In the Tools -> USB Type menu, choose `Serial + midi`.
+3. Plug the Teensy to your computer with a micro USB cable. (It's ok if the Teensy is on the module)
+4. Then just click the arrow button to upload the code
 
 ## How to use
 
@@ -91,14 +114,14 @@ Here is a description of the 6 inputs and what they do:
 
 ## MIDI
 
-The MIDI input and output jacks are directly connected to the Teensy serial input and output. That means there is not protection against voltage or current. It is primarily ment to connect 2 of these modules, or 2 Teensy together. If you want to connect something else to it make sure to provide a maximum of 3.3v and 250 mA.
+The MIDI input and output jacks are directly connected to the Teensy serial input and output. That means there is no protection against voltage or current. It is primarily ment to connect 2 of these modules, or 2 Teensy together. If you want to connect something else to it make sure to provide a maximum of `3.3v` and `250mA`.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
 # About me
-You can find me on Bandcamp and Instagram:
+You can find me on Bandcamp, Instagram, Youtube and my own site:
 
 https://ghostintranslation.bandcamp.com/
 
