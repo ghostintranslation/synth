@@ -2,8 +2,6 @@
 #define Synth_h
 
 #include <Audio.h>
-#include <MIDI.h>
-MIDI_CREATE_DEFAULT_INSTANCE(); // MIDI library init
 
 #include "Motherboard6.h"
 #include "Voice.h"
@@ -70,6 +68,13 @@ class Synth{
     static void onFmChange(byte inputIndex, unsigned int value, int diffToPrevious);
     static void onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious);
     static void onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    // Midi callbacks
+    static void onMidiModeChange(byte channel, byte control, byte value);
+    static void onMidiParamChange(byte channel, byte control, byte value);
+    static void onMidiShapeChange(byte channel, byte control, byte value);
+    static void onMidiFmChange(byte channel, byte control, byte value);
+    static void onMidiAttackChange(byte channel, byte control, byte value);
+    static void onMidiReleaseChange(byte channel, byte control, byte value);
 };
 
 // Singleton pre init
@@ -124,17 +129,15 @@ inline Synth *Synth::getInstance()    {
  * Init
  */
 inline void Synth::init(){
-  // 0 = empty, 1 = button, 2 = potentiometer, 3 = encoder
-  byte controls[9] = {2,2, 2,2, 2,2};
-  this->device->init(controls);
+  this->device->init(
+    "Synth",
+    {
+      Potentiometer, Potentiometer,
+      Potentiometer, Potentiometer,
+      Potentiometer, Potentiometer
+    }
+  );
 
-  MIDI.setHandleNoteOn(noteOn);
-  MIDI.setHandleNoteOff(noteOff);
-  MIDI.begin(this->device->getMidiChannel());
-  usbMIDI.setHandleNoteOn(noteOn);
-  usbMIDI.setHandleNoteOff(noteOff);
-  usbMIDI.setHandleStop(stop);
-  usbMIDI.setHandleSystemReset(stop);
 
   // Device callbacks
   this->device->setHandlePotentiometerChange(0, onModeChange);
@@ -143,13 +146,22 @@ inline void Synth::init(){
   this->device->setHandlePotentiometerChange(3, onFmChange);
   this->device->setHandlePotentiometerChange(4, onAttackChange);
   this->device->setHandlePotentiometerChange(5, onReleaseChange);
+  
+  this->device->setHandleMidiNoteOn(noteOn);
+  this->device->setHandleMidiNoteOff(noteOff);
+  this->device->setHandleMidiControlChange(0, 0, "Mode",    onMidiModeChange);
+  this->device->setHandleMidiControlChange(0, 1, "Param",   onMidiParamChange);
+  this->device->setHandleMidiControlChange(0, 2, "Shape",   onMidiShapeChange);
+  this->device->setHandleMidiControlChange(0, 3, "FM",      onMidiFmChange);
+  this->device->setHandleMidiControlChange(0, 4, "Attack",  onMidiAttackChange);
+  this->device->setHandleMidiControlChange(0, 5, "Release", onMidiReleaseChange);
 }
 
 /**
  * Note on
  */
 inline void Synth::noteOn(byte channel, byte note, byte velocity){
-  
+  Serial.println("noteOn");
   bool foundOne = false;
   int oldestVoice = 0;
   unsigned long oldestVoiceTime = 0;
@@ -256,9 +268,6 @@ inline AudioMixer4 * Synth::getOutput(){
 inline void Synth::update(){
   this->device->update();
   
-  MIDI.read(this->device->getMidiChannel());
-  usbMIDI.read(this->device->getMidiChannel());
-  
   if(this->clockUpdate > updateMillis){
     
     for (int i = 0; i < voiceCount ; i++) {
@@ -292,6 +301,10 @@ inline void Synth::update(){
  * On Mode Change
  */
 inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+  
   byte mode = (byte)constrain(
     map(
       value,
@@ -347,12 +360,29 @@ inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToP
   }
 }
 
-
+/**
+ * On MIDI Mode Change
+ */
+void Synth::onMidiModeChange(byte channel, byte control, byte value){
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onModeChange(0, mapValue, 255);
+}
 
 /**
  * On Param Change
  */
 inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+  
   getInstance()->parameter = value;
   
   switch(modes(getInstance()->mode)){
@@ -397,12 +427,29 @@ inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffTo
   }
 }
 
-
+/**
+ * On MIDI Param Change
+ */
+void Synth::onMidiParamChange(byte channel, byte control, byte value){
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onParamChange(1, mapValue, 255);
+}
 
 /**
  * On Shape Change
  */
 inline void Synth::onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+  
   // Shape
   float shape = (float)map(
     (float)value, 
@@ -417,11 +464,31 @@ inline void Synth::onShapeChange(byte inputIndex, unsigned int value, int diffTo
   }
 }
 
+/**
+ * On MIDI Shape Change
+ */
+void Synth::onMidiShapeChange(byte channel, byte control, byte value){
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onShapeChange(2, mapValue, 255);
+}
+
 
 /**
  * On FM Change
  */
 inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPrevious){
+
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+    Serial.println("onFmChange");
   int modulatorFrequency = 0;
   float modulatorAmplitude = 0;
   
@@ -459,9 +526,29 @@ inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPre
 }
 
 /**
+ * On MIDI FM Change
+ */
+void Synth::onMidiFmChange(byte channel, byte control, byte value){
+  Serial.println("onMidiFmChange");
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onFmChange(3, mapValue, 255);
+}
+
+/**
  * On Attack Change
  */
 inline void Synth::onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+  
   unsigned int attack = map(
     value,
     getInstance()->device->getAnalogMinValue(),
@@ -478,9 +565,28 @@ inline void Synth::onAttackChange(byte inputIndex, unsigned int value, int diffT
 }
 
 /**
+ * On MIDI Attack Change
+ */
+void Synth::onMidiAttackChange(byte channel, byte control, byte value){
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onAttackChange(4, mapValue, 255);
+}
+
+/**
  * On Release Change
  */
 inline void Synth::onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious){
+  if(diffToPrevious >= -1 && diffToPrevious <= 1){
+    return;
+  }
+  
   unsigned int release = map(
     value, 
     getInstance()->device->getAnalogMinValue(), 
@@ -494,6 +600,21 @@ inline void Synth::onReleaseChange(byte inputIndex, unsigned int value, int diff
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setRelease(release);
   }
+}
+
+/**
+ * On MIDI Release Change
+ */
+void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
+  unsigned int mapValue = map(
+    value, 
+    0,
+    127,
+    getInstance()->device->getAnalogMinValue(), 
+    getInstance()->device->getAnalogMaxValue()
+  );
+  
+  getInstance()->onReleaseChange(5, mapValue, 255);
 }
 
 #endif

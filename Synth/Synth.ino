@@ -4,7 +4,7 @@
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
 SYNTH
-v1.0.0
+v1.1.0
 
 If you enjoy my work and music please consider donating.
 
@@ -17,7 +17,6 @@ https://github.com/ghostintranslation
 
 #include <Audio.h>
 
-#include "Motherboard6.h"
 #include "Synth.h"
 
 // Instanciation of DS9
@@ -31,15 +30,16 @@ AudioControlSGTL5000 audioBoard;
 void setup() {
   Serial.begin(115200);
   
+  while (!Serial && millis() < 2500); // wait for serial monitor
+  
   synth->init();
 
   // Audio connections require memory to work.
   AudioMemory(40);
 
   audioBoard.enable();
-  audioBoard.volume(0.1);
+  audioBoard.volume(0.5);
   
-  while (!Serial && millis() < 2500); // wait for serial monitor
 
   // Starting sequence
   Serial.println("Ready!");
