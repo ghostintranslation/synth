@@ -138,7 +138,6 @@ inline void Synth::init(){
     }
   );
 
-
   // Device callbacks
   this->device->setHandlePotentiometerChange(0, onModeChange);
   this->device->setHandlePotentiometerChange(1, onParamChange);
@@ -161,7 +160,6 @@ inline void Synth::init(){
  * Note on
  */
 inline void Synth::noteOn(byte channel, byte note, byte velocity){
-  Serial.println("noteOn");
   bool foundOne = false;
   int oldestVoice = 0;
   unsigned long oldestVoiceTime = 0;
@@ -281,7 +279,6 @@ inline void Synth::update(){
         if(this->arpNotesPlaying > 0){
           this->voices[0]->noteOn(this->arpNotes[this->arpIndex]);
         }
-        
           
         this->arpIndex++;
         if(this->arpIndex > this->arpNotesPlaying-1 ){
@@ -301,10 +298,6 @@ inline void Synth::update(){
  * On Mode Change
  */
 inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToPrevious){
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-  
   byte mode = (byte)constrain(
     map(
       value,
@@ -316,7 +309,7 @@ inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToP
     0,
     2
   );
-  
+
   bool monoPoly = map(
     value,
     getInstance()->device->getAnalogMinValue(), 
@@ -378,11 +371,7 @@ void Synth::onMidiModeChange(byte channel, byte control, byte value){
 /**
  * On Param Change
  */
-inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffToPrevious){
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-  
+inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffToPrevious){  
   getInstance()->parameter = value;
   
   switch(modes(getInstance()->mode)){
@@ -446,10 +435,6 @@ void Synth::onMidiParamChange(byte channel, byte control, byte value){
  * On Shape Change
  */
 inline void Synth::onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious){
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-  
   // Shape
   float shape = (float)map(
     (float)value, 
@@ -484,11 +469,6 @@ void Synth::onMidiShapeChange(byte channel, byte control, byte value){
  * On FM Change
  */
 inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPrevious){
-
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-    Serial.println("onFmChange");
   int modulatorFrequency = 0;
   float modulatorAmplitude = 0;
   
@@ -529,7 +509,6 @@ inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPre
  * On MIDI FM Change
  */
 void Synth::onMidiFmChange(byte channel, byte control, byte value){
-  Serial.println("onMidiFmChange");
   unsigned int mapValue = map(
     value, 
     0,
@@ -545,10 +524,6 @@ void Synth::onMidiFmChange(byte channel, byte control, byte value){
  * On Attack Change
  */
 inline void Synth::onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious){
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-  
   unsigned int attack = map(
     value,
     getInstance()->device->getAnalogMinValue(),
@@ -583,10 +558,6 @@ void Synth::onMidiAttackChange(byte channel, byte control, byte value){
  * On Release Change
  */
 inline void Synth::onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious){
-  if(diffToPrevious >= -1 && diffToPrevious <= 1){
-    return;
-  }
-  
   unsigned int release = map(
     value, 
     getInstance()->device->getAnalogMinValue(), 
