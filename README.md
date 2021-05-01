@@ -4,11 +4,12 @@
 
 SYNTH is a modular FM polyphonic synthesizer, based on eurorack physical format it has however no patch cables in the front but has rather midi and audio jacks in the back.
 
-It is based on [Motherboard6](https://github.com/ghostintranslation/motherboard6).
+It is based on [Motherboard](https://github.com/ghostintranslation/motherboard), my modular platform, see in there for schematics.
 
-I sell the PCBs and front panel if you wish to build SYNTH. You can get them here: https://ghostintranslation.bandcamp.com/merch/synth-panel-and-pcb
+You can get the PCBs and front panel here:<br/>
+https://ghostintranslation.bandcamp.com/merch/synth-panel-and-pcb
 
-<img src="synth.jpg" width="200px"/> <img src="synth-side.jpg" width="200px"/>
+<img src="synth-black.jpg" width="300px"/> <img src="synth-white.jpg" width="300px"/>
 
 ## Features
 
@@ -41,6 +42,7 @@ What things you need to make it work:
 1 SYNTH front panel pcb
 6 vertical linear 10k potentiometers with their nuts
 1 5 pins male header
+1 5 pins female headers
 5 14 pins male header
 5 14 pins female header
 2 14 pins long female header
@@ -65,7 +67,7 @@ Note:
 3. Solder 14 pins male headers on MOTHERBOARD6A
 4. Place the potentiometers and LEDs on MOTHERBOARD6A, and attach the front panel
 5. Solder the potentiometers and the LEDs
-6. Place the female headers for the Teensy on MOTHERBOARD6B, insert the Teensy on them, then solder the headers
+6. Place the 14 pins and 5 pins female headers for the Teensy on MOTHERBOARD6B, insert the Teensy on them, then solder the headers
 7. Detach the Teensy for now
 8. Solder the jack connectors, the dipswitch and the resistor on MOTHERBOARD6B
 9. Place 14 pins female headers on MOTHERBOARD6B, connect MOTHERBOARD6A on them, then solder the headers
@@ -115,15 +117,29 @@ Here is a description of the 6 inputs and what they do:
 
 ```
 
+All of the inputs are available via MIDI CC.
+
 ## MIDI
 
-The MIDI input and output jacks are directly connected to the Teensy serial input and output. That means there is no protection against voltage or current. It is primarily ment to connect 2 of these modules, or 2 Teensy together. If you want to connect something else to it make sure to provide a maximum of `3.3v` and `250mA`.
+SYNTH supports MIDI in via USB and TS jack. It doesn't send out any MIDI.
 
-## License
+The MIDI in default settings are:
+```
+CC 0 = Mode
+CC 1 = Param
+CC 2 = Shape
+CC 3 = FM
+CC 4 = Attack
+CC 5 = Release
+```
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+These settings can be changed in the code or via the web editor: http://ghostintranslation.com/editor
 
-# About me
+**Important:**
+
+The MIDI input and output jacks are directly connected to the Teensy serial input and output. That means there is not protection against voltage or current. It is primarily ment to connect 2 of these modules, or 2 Teensy together. If you want to connect something else to it make sure to provide a maximum of 3.3v and 250 mA.
+
+## About me
 You can find me on Bandcamp, Instagram, Youtube and my own site:
 
 https://ghostintranslation.bandcamp.com/
@@ -133,3 +149,11 @@ https://www.instagram.com/ghostintranslation/
 https://www.youtube.com/channel/UCcyUTGTM-hGLIz4194Inxyw
 
 https://www.ghostintranslation.com/
+
+## Support
+To support my work:<br>
+https://www.paypal.com/paypalme/ghostintranslation
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
