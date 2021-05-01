@@ -3,7 +3,7 @@
 
 #include <Audio.h>
 
-#include "Motherboard6.h"
+#include "Motherboard.h"
 #include "Voice.h"
 
 // Number of voices
@@ -21,7 +21,7 @@ class Synth{
     Synth();
 
     // Motherboard
-    Motherboard6 *device;
+    Motherboard *device;
     
     Voice *voices[voiceCount];
     byte actualVoiceCount = 1;
@@ -62,12 +62,12 @@ class Synth{
     AudioMixer4 * getOutput();
     
     // Callbacks
-    static void onModeChange(byte inputIndex, unsigned int value, int diffToPrevious);
-    static void onParamChange(byte inputIndex, unsigned int value, int diffToPrevious);
-    static void onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious);
-    static void onFmChange(byte inputIndex, unsigned int value, int diffToPrevious);
-    static void onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious);
-    static void onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious);
+    static void onModeChange(byte inputIndex, float value, int diffToPrevious);
+    static void onParamChange(byte inputIndex, float value, int diffToPrevious);
+    static void onShapeChange(byte inputIndex, float value, int diffToPrevious);
+    static void onFmChange(byte inputIndex, float value, int diffToPrevious);
+    static void onAttackChange(byte inputIndex, float value, int diffToPrevious);
+    static void onReleaseChange(byte inputIndex, float value, int diffToPrevious);
     // Midi callbacks
     static void onMidiModeChange(byte channel, byte control, byte value);
     static void onMidiParamChange(byte channel, byte control, byte value);
@@ -84,9 +84,6 @@ Synth * Synth::instance = nullptr;
  * Constructor
  */
 inline Synth::Synth(){
-
-  this->device = Motherboard6::getInstance();
-  
   this->synthesis = 0;
   this->attack = 10;
   this->release = 2000;
@@ -129,7 +126,7 @@ inline Synth *Synth::getInstance()    {
  * Init
  */
 inline void Synth::init(){
-  this->device->init(
+  this->device = Motherboard::init(
     "Synth",
     {
       Potentiometer, Potentiometer,
@@ -297,7 +294,7 @@ inline void Synth::update(){
 /**
  * On Mode Change
  */
-inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious){
   byte mode = (byte)constrain(
     map(
       value,
@@ -311,7 +308,7 @@ inline void Synth::onModeChange(byte inputIndex, unsigned int value, int diffToP
   );
 
   bool monoPoly = map(
-    value,
+    (int)value,
     getInstance()->device->getAnalogMinValue(), 
     getInstance()->device->getAnalogMaxValue() / 3,
     0,
@@ -371,7 +368,7 @@ void Synth::onMidiModeChange(byte channel, byte control, byte value){
 /**
  * On Param Change
  */
-inline void Synth::onParamChange(byte inputIndex, unsigned int value, int diffToPrevious){  
+inline void Synth::onParamChange(byte inputIndex, float value, int diffToPrevious){  
   getInstance()->parameter = value;
   
   switch(modes(getInstance()->mode)){
@@ -428,13 +425,13 @@ void Synth::onMidiParamChange(byte channel, byte control, byte value){
     getInstance()->device->getAnalogMaxValue()
   );
   
-  getInstance()->onParamChange(1, mapValue, 255);
+  getInstance()->device->setPotentiometer(1, mapValue);
 }
 
 /**
  * On Shape Change
  */
-inline void Synth::onShapeChange(byte inputIndex, unsigned int value, int diffToPrevious){
+inline void Synth::onShapeChange(byte inputIndex, float value, int diffToPrevious){
   // Shape
   float shape = (float)map(
     (float)value, 
@@ -461,27 +458,27 @@ void Synth::onMidiShapeChange(byte channel, byte control, byte value){
     getInstance()->device->getAnalogMaxValue()
   );
   
-  getInstance()->onShapeChange(2, mapValue, 255);
+  getInstance()->device->setPotentiometer(2, mapValue);
 }
 
 
 /**
  * On FM Change
  */
-inline void Synth::onFmChange(byte inputIndex, unsigned int value, int diffToPrevious){
+inline void Synth::onFmChange(byte inputIndex, float value, int diffToPrevious){
   int modulatorFrequency = 0;
   float modulatorAmplitude = 0;
-  
+
   if(value < getInstance()->device->getAnalogMaxValue() / 3){
     modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 10);
-    modulatorAmplitude = (float)map((float)value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+    modulatorAmplitude = (float)map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
   }
   else if(value >= getInstance()->device->getAnalogMaxValue() / 3 && value < getInstance()->device->getAnalogMaxValue() / 2){
     modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 40);
-    modulatorAmplitude = (float)map((float)value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+    modulatorAmplitude = (float)map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
   }else{
     modulatorFrequency = map(value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, 1000);
-    modulatorAmplitude = (float)map((float)value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, .5);
+    modulatorAmplitude = (float)map(value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, .5);
   }
   
   if(getInstance()->modulatorFrequency != modulatorFrequency){
@@ -517,13 +514,13 @@ void Synth::onMidiFmChange(byte channel, byte control, byte value){
     getInstance()->device->getAnalogMaxValue()
   );
   
-  getInstance()->onFmChange(3, mapValue, 255);
+  getInstance()->device->setPotentiometer(3, mapValue);
 }
 
 /**
  * On Attack Change
  */
-inline void Synth::onAttackChange(byte inputIndex, unsigned int value, int diffToPrevious){
+inline void Synth::onAttackChange(byte inputIndex, float value, int diffToPrevious){
   unsigned int attack = map(
     value,
     getInstance()->device->getAnalogMinValue(),
@@ -551,13 +548,13 @@ void Synth::onMidiAttackChange(byte channel, byte control, byte value){
     getInstance()->device->getAnalogMaxValue()
   );
   
-  getInstance()->onAttackChange(4, mapValue, 255);
+  getInstance()->device->setPotentiometer(4, mapValue);
 }
 
 /**
  * On Release Change
  */
-inline void Synth::onReleaseChange(byte inputIndex, unsigned int value, int diffToPrevious){
+inline void Synth::onReleaseChange(byte inputIndex, float value, int diffToPrevious){
   unsigned int release = map(
     value, 
     getInstance()->device->getAnalogMinValue(), 
@@ -585,7 +582,7 @@ void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
     getInstance()->device->getAnalogMaxValue()
   );
   
-  getInstance()->onReleaseChange(5, mapValue, 255);
+  getInstance()->device->setPotentiometer(5, mapValue);
 }
 
 #endif

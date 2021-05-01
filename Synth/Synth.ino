@@ -4,9 +4,10 @@
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
 SYNTH
-v1.1.0
+v1.2.0
 
-If you enjoy my work and music please consider donating.
+Support my work:
+https://www.paypal.com/paypalme/ghostintranslation
 
 https://www.ghostintranslation.com/
 https://ghostintranslation.bandcamp.com/
@@ -23,8 +24,11 @@ https://github.com/ghostintranslation
 Synth * synth = Synth::getInstance();
 
 AudioOutputI2S  i2s2;
+AudioOutputUSB usb;
 AudioConnection patchCord1(*synth->getOutput(), 0, i2s2, 0);
 AudioConnection patchCord2(*synth->getOutput(), 0, i2s2, 1);
+AudioConnection patchCord3(*synth->getOutput(), 0, usb, 0);
+AudioConnection patchCord4(*synth->getOutput(), 0, usb, 1);
 AudioControlSGTL5000 audioBoard;
 
 void setup() {
