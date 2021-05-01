@@ -230,7 +230,7 @@ class Motherboard{
     bool *inputsLongPressDownFired;
     using PotentiometerChangeCallback = void (*)(byte, float, int);
     PotentiometerChangeCallback *inputsPotentiometerChangeCallback;
-    using RotaryChangeCallback = void (*)(bool);
+    using RotaryChangeCallback = void (*)(byte, bool);
     RotaryChangeCallback *inputsRotaryChangeCallback;
 
     // Callbacks triggers
@@ -884,10 +884,11 @@ inline void Motherboard::readEncoder(byte inputIndex) {
     this->currentEncPinB = digitalReadFast(22);
   }
 
+
   // When reading of Pin A and B is done we can interpret the result
   if (this->clockInputs > this->intervalInputs / 2
       && this->clockInputs < this->intervalInputs / 1.5) {
-
+  
     byte pinstate = (this->currentEncPinB << 1) | this->currentEncPinA;
     // Determine new state from the pins and state table.
     this->encodersState[inputIndex] = this->ttable[this->encodersState[inputIndex] & 0xf][pinstate];
@@ -902,7 +903,7 @@ inline void Motherboard::readEncoder(byte inputIndex) {
     } else if (result == DIR_CCW) {
       this->encoders[inputIndex]++;
       
-      // Calling the decrement callback if there is one
+      // Calling the increment callback if there is one
       this->triggerRotaryChangeCallback(inputIndex, true);
     }
 
@@ -988,7 +989,7 @@ inline void Motherboard::readEncoder(byte inputIndex) {
 
 inline void Motherboard::triggerRotaryChangeCallback(byte inputIndex, bool value){
   if(this->inputsRotaryChangeCallback[inputIndex] != nullptr){
-    this->inputsRotaryChangeCallback[inputIndex](false);
+    this->inputsRotaryChangeCallback[inputIndex](inputIndex, value);
   }
 }
 

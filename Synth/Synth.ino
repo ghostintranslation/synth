@@ -20,7 +20,7 @@ https://github.com/ghostintranslation
 
 #include "Synth.h"
 
-// Instanciation of DS9
+// Instanciation of Synth
 Synth * synth = Synth::getInstance();
 
 AudioOutputI2S  i2s2;
@@ -43,9 +43,8 @@ void setup() {
 
   audioBoard.enable();
   audioBoard.volume(0.5);
-  
 
-  // Starting sequence
+  // Ready!
   Serial.println("Ready!");
 }
 
