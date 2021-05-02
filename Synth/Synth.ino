@@ -4,9 +4,10 @@
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
 SYNTH
-v1.0.0
+v1.2.0
 
-If you enjoy my work and music please consider donating.
+Support my work:
+https://www.paypal.com/paypalme/ghostintranslation
 
 https://www.ghostintranslation.com/
 https://ghostintranslation.bandcamp.com/
@@ -17,19 +18,23 @@ https://github.com/ghostintranslation
 
 #include <Audio.h>
 
-#include "Motherboard6.h"
 #include "Synth.h"
 
-// Instanciation of DS9
+// Instanciation of Synth
 Synth * synth = Synth::getInstance();
 
 AudioOutputI2S  i2s2;
+AudioOutputUSB usb;
 AudioConnection patchCord1(*synth->getOutput(), 0, i2s2, 0);
 AudioConnection patchCord2(*synth->getOutput(), 0, i2s2, 1);
+AudioConnection patchCord3(*synth->getOutput(), 0, usb, 0);
+AudioConnection patchCord4(*synth->getOutput(), 0, usb, 1);
 AudioControlSGTL5000 audioBoard;
 
 void setup() {
   Serial.begin(115200);
+  
+  while (!Serial && millis() < 2500); // wait for serial monitor
   
   synth->init();
 
@@ -37,11 +42,9 @@ void setup() {
   AudioMemory(40);
 
   audioBoard.enable();
-  audioBoard.volume(0.1);
-  
-  while (!Serial && millis() < 2500); // wait for serial monitor
+  audioBoard.volume(0.5);
 
-  // Starting sequence
+  // Ready!
   Serial.println("Ready!");
 }
 

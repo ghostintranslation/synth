@@ -120,9 +120,9 @@ inline Voice::Voice(){
 inline void Voice::update(){
   if(this->intervalGlide > 0){
     if(this->frequencyTarget > this->freq){
-      this->freq += (this->frequencyTarget - this->freq) / ((float)this->intervalGlide / (float)updateMillis);
+      this->freq += constrain((this->frequencyTarget - this->freq) / ((float)this->intervalGlide / (float)updateMillis), 0, (this->frequencyTarget - this->freq));
     }else{
-      this->freq -= (this->freq - this->frequencyTarget) / ((float)this->intervalGlide / (float)updateMillis);
+      this->freq -= constrain((this->freq - this->frequencyTarget) / ((float)this->intervalGlide / (float)updateMillis), 0, (this->freq - this->frequencyTarget));
     }
 
     this->setFrequency(this->freq);
