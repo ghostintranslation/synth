@@ -12,7 +12,7 @@ I sell the PCBs and front panel if you wish to build SYNTH. You can get them her
 
 ## Features
 
-* FM synthesis with 1 carier and 1 modulator
+* FM synthesis with 1 carrier and 1 modulator
 * 16 voices polyphony
 * Sine and triangle waveforms
 * Arpeggiator and Drone modes
