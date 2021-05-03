@@ -13,7 +13,7 @@ https://ghostintranslation.bandcamp.com/merch/synth-panel-and-pcb
 
 ## Features
 
-* FM synthesis with 1 carier and 1 modulator
+* FM synthesis with 1 carrier and 1 modulator
 * 16 voices polyphony
 * Sine and triangle waveforms
 * Arpeggiator and Drone modes
