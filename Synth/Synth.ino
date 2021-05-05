@@ -4,7 +4,7 @@
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
 SYNTH
-v1.2.0
+v1.2.1
 
 Support my work:
 https://www.paypal.com/paypalme/ghostintranslation
