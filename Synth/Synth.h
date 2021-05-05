@@ -28,6 +28,7 @@ class Synth{
     byte synthesis;
     byte mode;
     int parameter;
+    byte portamento = 255;
     unsigned int arpTime;
     elapsedMillis elapsedTime;
     byte arpIndex;
@@ -160,27 +161,72 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
   bool foundOne = false;
   int oldestVoice = 0;
   unsigned long oldestVoiceTime = 0;
+  int closestVoice = 0;
+  unsigned long closestVoiceNote = sizeof(unsigned long);
   
   switch (modes(getInstance()->mode)){
     case SYNTH: 
-      for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
-        // Search for the oldest voice
-        if(getInstance()->voices[i]->last_played > oldestVoiceTime){
-          oldestVoiceTime = getInstance()->voices[i]->last_played;
-          oldestVoice = i;
+      if(getInstance()->portamento == 0){
+        for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
+          // If no portamento we get an inactive voice to play the new note
+          // or else the oldest voice
+          
+          // Search for the oldest voice
+          if(getInstance()->voices[i]->last_played > oldestVoiceTime){
+            oldestVoiceTime = getInstance()->voices[i]->last_played;
+            oldestVoice = i;
+          }
+          
+          // Search for an inactive voice
+          if(!getInstance()->voices[i]->isActive()){
+            getInstance()->voices[i]->noteOn(note);
+            foundOne = true;
+            break;
+          }
         }
         
-        // Search for an inactive voice
-        if(!getInstance()->voices[i]->isActive()){
-          getInstance()->voices[i]->noteOn(note);
-          foundOne = true;
-          break;
+        // No inactive voice then will take over the oldest note
+        if(!foundOne){
+          getInstance()->voices[oldestVoice]->noteOn(note);
         }
-      }
-    
-      // No inactive voice then will take over the oldest note
-      if(!foundOne){
-        getInstance()->voices[oldestVoice]->noteOn(note);
+      }else{
+        // If there is portamento then we find the voice with the closest note
+        // to play the new note, so that portamento is applied to it and it sounds better in polyphony
+
+        // Search first for a voice that is not being played and not active and not the same note as the new note
+        for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
+          if(!getInstance()->voices[i]->isNotePlayed() &&
+             !getInstance()->voices[i]->isActive() &&
+            abs(getInstance()->voices[i]->getCurrentNote() - note) < closestVoiceNote &&
+            getInstance()->voices[i]->getCurrentNote() != note){
+            closestVoiceNote = getInstance()->voices[i]->getCurrentNote();
+            closestVoice = i;
+            foundOne = true;
+            break;
+          }
+        }
+
+        // If none is found then search for a voice that is just not being played and not the same note
+        if(!foundOne){
+          for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
+            if(!getInstance()->voices[i]->isNotePlayed() &&
+              abs(getInstance()->voices[i]->getCurrentNote() - note) < closestVoiceNote &&
+              getInstance()->voices[i]->getCurrentNote() != note){
+              closestVoiceNote = getInstance()->voices[i]->getCurrentNote();
+              closestVoice = i;
+              foundOne = true;
+            }
+          }
+        }
+
+        // Make sure that the voice selected will not start with a note that is too far to avoid bad sounding portamento
+        if(getInstance()->voices[closestVoice]->getCurrentNote() - note > 12){
+          getInstance()->voices[closestVoice]->setCurrentNote(note + 12);
+        }else if(getInstance()->voices[closestVoice]->getCurrentNote() - note < -12){
+          getInstance()->voices[closestVoice]->setCurrentNote(note - 12);
+        }
+        
+        getInstance()->voices[closestVoice]->noteOn(note);
       }
     break;
     case ARP:
@@ -268,25 +314,27 @@ inline void Synth::update(){
     for (int i = 0; i < voiceCount ; i++) {
       this->voices[i]->update();
     }
-
-    // Arp
-    if(modes(this->mode) == ARP){
-      if (this->elapsedTime >= this->arpTime) {
-  
-        if(this->arpNotesPlaying > 0){
-          this->voices[0]->noteOn(this->arpNotes[this->arpIndex]);
-        }
-          
-        this->arpIndex++;
-        if(this->arpIndex > this->arpNotesPlaying-1 ){
-          this->arpIndex = 0;
-        }
-        
-        this->elapsedTime = 0;
-      }
-    }
     
     this->clockUpdate = 0;
+  }
+
+  
+  // Arp
+  if(modes(this->mode) == ARP){
+    if (this->elapsedTime >= this->arpTime) {
+
+      if(this->arpNotesPlaying > 0){
+        this->voices[0]->setGlide(255);
+        this->voices[0]->noteOn(this->arpNotes[this->arpIndex]);
+      }
+        
+      this->arpIndex++;
+      if(this->arpIndex > this->arpNotesPlaying-1 ){
+        this->arpIndex = 0;
+      }
+      
+      this->elapsedTime = 0;
+    }
   }
 }
 
@@ -299,7 +347,7 @@ inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious
     map(
       value,
       getInstance()->device->getAnalogMinValue(),
-      getInstance()->device->getAnalogMaxValue(), 
+      getInstance()->device->getAnalogMaxValue() - 100, 
       0, 
       2
     ),
@@ -324,9 +372,10 @@ inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious
   }
   
   getInstance()->mode = mode;
-  
+
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setMode(mode);
+    getInstance()->voices[i]->setGlide(getInstance()->portamento);
   }
 
   if(modes(getInstance()->mode) == DRONE){
@@ -374,21 +423,22 @@ inline void Synth::onParamChange(byte inputIndex, float value, int diffToPreviou
   switch(modes(getInstance()->mode)){
     case SYNTH:
     {
-      // Glide
-      int voiceGlide = constrain(
+      // Portamento
+      getInstance()->portamento = constrain(
         map(
           value,
           getInstance()->device->getAnalogMinValue(),
           getInstance()->device->getAnalogMaxValue(),
-          0,
-          255
+          255,
+          0
         ),
         0,
         255
       );
 
+      // Set it to all voices
       for (int i = 0; i < voiceCount ; i++) {
-        getInstance()->voices[i]->setGlide(voiceGlide);
+        getInstance()->voices[i]->setGlide(getInstance()->portamento);
       }
     }
     break;
