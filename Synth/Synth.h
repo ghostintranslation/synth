@@ -311,7 +311,7 @@ inline void Synth::update(){
   
   if(this->clockUpdate > updateMillis){
     
-    for (int i = 0; i < voiceCount ; i++) {
+    for (byte i = 0; i < voiceCount ; i++) {
       this->voices[i]->update();
     }
     
@@ -324,8 +324,21 @@ inline void Synth::update(){
     if (this->elapsedTime >= this->arpTime) {
 
       if(this->arpNotesPlaying > 0){
-        this->voices[0]->setGlide(255);
-        this->voices[0]->noteOn(this->arpNotes[this->arpIndex]);
+        if(this->arpIndex == 0){
+          if(this->voices[(this->arpNotesPlaying-1)]->isNotePlayed()){
+            this->voices[(this->arpNotesPlaying-1)]->noteOff();
+          }
+        }else{
+          if(this->voices[(this->arpIndex-1)]->isNotePlayed()){
+            this->voices[(this->arpIndex-1)]->noteOff();
+          }
+        }
+        this->voices[this->arpIndex]->setGlide(255);
+        this->voices[this->arpIndex]->noteOn(this->arpNotes[this->arpIndex]);
+      }else{
+        for (byte i = 0; i < voiceCount ; i++) {
+          getInstance()->voices[i]->noteOff();
+        }
       }
         
       this->arpIndex++;
@@ -375,7 +388,15 @@ inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious
 
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setMode(mode);
-    getInstance()->voices[i]->setGlide(getInstance()->portamento);
+    
+    switch(mode){
+      case ARP:
+        getInstance()->voices[i]->setGlide(255);
+        break;
+      default:
+        getInstance()->voices[i]->setGlide(getInstance()->portamento);
+        break;
+    }
   }
 
   if(modes(getInstance()->mode) == DRONE){
