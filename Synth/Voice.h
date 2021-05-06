@@ -48,8 +48,8 @@ class Voice{
     synthesis synth;
     modes mode;
     bool notePlayed;
-    unsigned int freq = 0;
-    unsigned int frequencyTarget = 0;
+    float freq = 0;
+    float frequencyTarget = 0;
     byte currentNote = 0; // The midi note currently being played.
     byte intervalGlide = 0;
     byte updateMillis = 0;
@@ -67,7 +67,7 @@ class Voice{
     void setAR(unsigned int attack, unsigned int release);
     void setNotePlayed(bool notePlayed);
     void setMode(byte mode);
-    void setFrequency(int freq);
+    void setFrequency(float freq);
     void setFrequencyTarget(int freq);
     void setModulatorFrequency(int freq);
     void setModulatorAmplitude(float amp);
@@ -76,6 +76,7 @@ class Voice{
     void setRelease(int rel);
     void setGlide(byte glide);
     void setUpdateMillis(byte updateMillis);
+    void setCurrentNote(byte midiNote);
     // Getters
     bool isActive();
     bool isNotePlayed();
@@ -118,17 +119,19 @@ inline Voice::Voice(){
  * Update
  */
 inline void Voice::update(){
-  if(this->intervalGlide > 0){
-    if(this->frequencyTarget > this->freq){
-      this->freq += constrain((this->frequencyTarget - this->freq) / ((float)this->intervalGlide / (float)updateMillis), 0, (this->frequencyTarget - this->freq));
-    }else{
-      this->freq -= constrain((this->freq - this->frequencyTarget) / ((float)this->intervalGlide / (float)updateMillis), 0, (this->freq - this->frequencyTarget));
-    }
+  if(this->intervalGlide < 254){
+      if(this->frequencyTarget != this->freq){
+        this->freq += ((float)this->intervalGlide * (this->frequencyTarget - this->freq) / (float)255)  / ((float)100 / (float)this->updateMillis);
+      }
 
-    this->setFrequency(this->freq);
+      if(roundf(this->freq * 100) / 100 == 0){
+        this->freq = 0;
+      }
   }else{
-    this->setFrequency(this->frequencyTarget);
+    this->freq = this->frequencyTarget;
   }
+  
+  this->setFrequency(this->freq);
 }
 
 /**
@@ -154,7 +157,6 @@ inline void Voice::noteOn(byte midiNote) {
   this->last_played = millis();
   this->notePlayed=true;
   this->frequencyTarget = 440.0 * powf(2.0, (float)(this->currentNote - 69) * 0.08333333);
-  this->update();
   this->envelope->noteOn();
 }
 
@@ -163,7 +165,8 @@ inline void Voice::noteOn(byte midiNote) {
  */
 inline void Voice::noteOff() {
   this->envelope->noteOff();
-  this->frequencyTarget = this->freq;
+//  this->frequencyTarget = this->freq;
+  this->notePlayed = false;
 }
 
 /**
@@ -216,7 +219,7 @@ inline void Voice::setMode(byte modeValue){
 /**
  * Set the frequency
  */
-inline void Voice::setFrequency(int freq){
+inline void Voice::setFrequency(float freq){
   this->freq = freq;
   this->sineFM->frequency(freq);
   this->sawtoothFM->frequency(freq);
@@ -225,8 +228,8 @@ inline void Voice::setFrequency(int freq){
 /**
  * Set the trgeted frequency
  */
-inline void Voice::setFrequencyTarget(int freq){
-  this->frequencyTarget = freq;
+inline void Voice::setFrequencyTarget(int frequencyTarget){
+  this->frequencyTarget = frequencyTarget;
 }
 
 /**
@@ -274,6 +277,11 @@ inline void Voice::setGlide(byte glide){
  */
 inline byte Voice::getCurrentNote(){
   return this->currentNote;
+}
+
+inline void Voice::setCurrentNote(byte midiNote){
+  this->currentNote = midiNote;
+  this->freq = 440.0 * powf(2.0, (float)(this->currentNote - 69) * 0.08333333);
 }
 
 inline void Voice::setUpdateMillis(byte updateMillis){
