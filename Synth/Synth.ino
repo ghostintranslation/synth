@@ -4,15 +4,15 @@
 \_|| |\_/__) |    _|_| |    | | \| || |__)|__| | | _|_\_/| |
 
 SYNTH
-v1.2.1
+v2.0.0
 
 Support my work:
 https://www.paypal.com/paypalme/ghostintranslation
 
-https://www.ghostintranslation.com/
-https://ghostintranslation.bandcamp.com/
-https://www.instagram.com/ghostintranslation/
-https://www.youtube.com/channel/UCcyUTGTM-hGLIz4194Inxyw
+https://www.ghostintranslation.com
+https://ghostintranslation.bandcamp.com
+https://www.instagram.com/ghostintranslation
+https://www.youtube.com/c/ghostintranslation
 https://github.com/ghostintranslation
 */
 

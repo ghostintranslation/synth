@@ -3,7 +3,7 @@
 
 #include <Audio.h>
 
-#include "Motherboard.h"
+#include "Motherboard/Motherboard.h"
 #include "Voice.h"
 
 // Number of voices
@@ -19,9 +19,6 @@ class Synth{
     // Singleton
     static Synth *instance;
     Synth();
-
-    // Motherboard
-    Motherboard *device;
     
     Voice *voices[voiceCount];
     byte actualVoiceCount = 1;
@@ -63,12 +60,12 @@ class Synth{
     AudioMixer4 * getOutput();
     
     // Callbacks
-    static void onModeChange(byte inputIndex, float value, int diffToPrevious);
-    static void onParamChange(byte inputIndex, float value, int diffToPrevious);
-    static void onShapeChange(byte inputIndex, float value, int diffToPrevious);
-    static void onFmChange(byte inputIndex, float value, int diffToPrevious);
-    static void onAttackChange(byte inputIndex, float value, int diffToPrevious);
-    static void onReleaseChange(byte inputIndex, float value, int diffToPrevious);
+    static void onModeChange(byte inputIndex, float value, float diffToPrevious);
+    static void onParamChange(byte inputIndex, float value, float diffToPrevious);
+    static void onShapeChange(byte inputIndex, float value, float diffToPrevious);
+    static void onFmChange(byte inputIndex, float value, float diffToPrevious);
+    static void onAttackChange(byte inputIndex, float value, float diffToPrevious);
+    static void onReleaseChange(byte inputIndex, float value, float diffToPrevious);
     // Midi callbacks
     static void onMidiModeChange(byte channel, byte control, byte value);
     static void onMidiParamChange(byte channel, byte control, byte value);
@@ -127,31 +124,39 @@ inline Synth *Synth::getInstance()    {
  * Init
  */
 inline void Synth::init(){
-  this->device = Motherboard::init(
+  Motherboard.init(
     "Synth",
+    2,
     {
       Potentiometer, Potentiometer,
       Potentiometer, Potentiometer,
-      Potentiometer, Potentiometer
+      Potentiometer, Potentiometer,
+      CvIn, CvIn
+    },
+    {
+      None, None,
+      None, None,
+      None, None,
+      None, None
     }
   );
 
   // Device callbacks
-  this->device->setHandlePotentiometerChange(0, onModeChange);
-  this->device->setHandlePotentiometerChange(1, onParamChange);
-  this->device->setHandlePotentiometerChange(2, onShapeChange);
-  this->device->setHandlePotentiometerChange(3, onFmChange);
-  this->device->setHandlePotentiometerChange(4, onAttackChange);
-  this->device->setHandlePotentiometerChange(5, onReleaseChange);
+  Motherboard.setHandleChange(0, onModeChange);
+  Motherboard.setHandleChange(1, onParamChange);
+  Motherboard.setHandleChange(2, onShapeChange);
+  Motherboard.setHandleChange(3, onFmChange);
+  Motherboard.setHandleChange(4, onAttackChange);
+  Motherboard.setHandleChange(5, onReleaseChange);
   
-  this->device->setHandleMidiNoteOn(noteOn);
-  this->device->setHandleMidiNoteOff(noteOff);
-  this->device->setHandleMidiControlChange(0, 0, "Mode",    onMidiModeChange);
-  this->device->setHandleMidiControlChange(0, 1, "Param",   onMidiParamChange);
-  this->device->setHandleMidiControlChange(0, 2, "Shape",   onMidiShapeChange);
-  this->device->setHandleMidiControlChange(0, 3, "FM",      onMidiFmChange);
-  this->device->setHandleMidiControlChange(0, 4, "Attack",  onMidiAttackChange);
-  this->device->setHandleMidiControlChange(0, 5, "Release", onMidiReleaseChange);
+//  this->device->setHandleMidiNoteOn(noteOn);
+//  this->device->setHandleMidiNoteOff(noteOff);
+//  this->device->setHandleMidiControlChange(0, 0, "Mode",    onMidiModeChange);
+//  this->device->setHandleMidiControlChange(0, 1, "Param",   onMidiParamChange);
+//  this->device->setHandleMidiControlChange(0, 2, "Shape",   onMidiShapeChange);
+//  this->device->setHandleMidiControlChange(0, 3, "FM",      onMidiFmChange);
+//  this->device->setHandleMidiControlChange(0, 4, "Attack",  onMidiAttackChange);
+//  this->device->setHandleMidiControlChange(0, 5, "Release", onMidiReleaseChange);
 }
 
 /**
@@ -244,7 +249,7 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
     break;
   }
   
-  getInstance()->device->setLED(0, 1);
+  Motherboard.setLED(0, MotherboardNamespace::Led::Status::On);
 }
 
 /**
@@ -281,7 +286,7 @@ inline void Synth::noteOff(byte channel, byte note, byte velocity){
     break;
   }
   
-  getInstance()->device->setLED(0, 0);
+  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
 }
 
 /**
@@ -292,7 +297,7 @@ inline void Synth::stop(){
     getInstance()->voices[i]->noteOff();
   }
   
-  getInstance()->device->setLED(0, 0);
+  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
 }
 
 /**
@@ -307,7 +312,7 @@ inline AudioMixer4 * Synth::getOutput(){
  * Update
  */
 inline void Synth::update(){
-  this->device->update();
+  Motherboard.update();
   
   if(this->clockUpdate > updateMillis){
     
@@ -355,12 +360,12 @@ inline void Synth::update(){
 /**
  * On Mode Change
  */
-inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious){
+inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevious){
   byte mode = (byte)constrain(
     map(
       value,
-      getInstance()->device->getAnalogMinValue(),
-      getInstance()->device->getAnalogMaxValue() - 100, 
+      Motherboard.getAnalogMinValue(),
+      Motherboard.getAnalogMaxValue() - 100, 
       0, 
       2
     ),
@@ -370,8 +375,8 @@ inline void Synth::onModeChange(byte inputIndex, float value, int diffToPrevious
 
   bool monoPoly = map(
     (int)value,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue() / 3,
+    Motherboard.getAnalogMinValue(), 
+    Motherboard.getAnalogMaxValue() / 3,
     0,
     1
   );
@@ -428,8 +433,9 @@ void Synth::onMidiModeChange(byte channel, byte control, byte value){
     value, 
     0,
     127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
+    
+    Motherboard.getAnalogMinValue(), 
+    Motherboard.getAnalogMaxValue()
   );
   
   getInstance()->onModeChange(0, mapValue, 255);
@@ -438,7 +444,7 @@ void Synth::onMidiModeChange(byte channel, byte control, byte value){
 /**
  * On Param Change
  */
-inline void Synth::onParamChange(byte inputIndex, float value, int diffToPrevious){  
+inline void Synth::onParamChange(byte inputIndex, float value, float diffToPrevious){  
   getInstance()->parameter = value;
   
   switch(modes(getInstance()->mode)){
@@ -448,8 +454,8 @@ inline void Synth::onParamChange(byte inputIndex, float value, int diffToPreviou
       getInstance()->portamento = constrain(
         map(
           value,
-          getInstance()->device->getAnalogMinValue(),
-          getInstance()->device->getAnalogMaxValue(),
+          Motherboard.getAnalogMinValue(),
+          Motherboard.getAnalogMaxValue(),
           255,
           0
         ),
@@ -468,8 +474,8 @@ inline void Synth::onParamChange(byte inputIndex, float value, int diffToPreviou
       // Time
       getInstance()->arpTime = map(
         value,
-        getInstance()->device->getAnalogMinValue(),
-        getInstance()->device->getAnalogMaxValue(),
+        Motherboard.getAnalogMinValue(),
+        Motherboard.getAnalogMaxValue(),
         1,
         500
       );
@@ -488,26 +494,26 @@ inline void Synth::onParamChange(byte inputIndex, float value, int diffToPreviou
  * On MIDI Param Change
  */
 void Synth::onMidiParamChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
-  );
-  
-  getInstance()->device->setPotentiometer(1, mapValue);
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  Motherboard.setPotentiometer(1, mapValue);
 }
 
 /**
  * On Shape Change
  */
-inline void Synth::onShapeChange(byte inputIndex, float value, int diffToPrevious){
+inline void Synth::onShapeChange(byte inputIndex, float value, float diffToPrevious){
   // Shape
   float shape = (float)map(
     (float)value, 
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue(),
+    Motherboard.getAnalogMinValue(), 
+    Motherboard.getAnalogMaxValue(),
     0,
     1
   );
@@ -521,35 +527,35 @@ inline void Synth::onShapeChange(byte inputIndex, float value, int diffToPreviou
  * On MIDI Shape Change
  */
 void Synth::onMidiShapeChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
-  );
-  
-  getInstance()->device->setPotentiometer(2, mapValue);
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  Motherboard.setPotentiometer(2, mapValue);
 }
 
 
 /**
  * On FM Change
  */
-inline void Synth::onFmChange(byte inputIndex, float value, int diffToPrevious){
+inline void Synth::onFmChange(byte inputIndex, float value, float diffToPrevious){
   int modulatorFrequency = 0;
   float modulatorAmplitude = 0;
 
-  if(value < getInstance()->device->getAnalogMaxValue() / 3){
-    modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 10);
-    modulatorAmplitude = (float)map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+  if(value < Motherboard.getAnalogMaxValue() / 3){
+    modulatorFrequency = map(value, 0, Motherboard.getAnalogMaxValue() / 2, 0, 10);
+    modulatorAmplitude = (float)map(value, 0, Motherboard.getAnalogMaxValue() / 2, 0.001, .01);
   }
-  else if(value >= getInstance()->device->getAnalogMaxValue() / 3 && value < getInstance()->device->getAnalogMaxValue() / 2){
-    modulatorFrequency = map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0, 40);
-    modulatorAmplitude = (float)map(value, 0, getInstance()->device->getAnalogMaxValue() / 2, 0.001, .01);
+  else if(value >= Motherboard.getAnalogMaxValue() / 3 && value < Motherboard.getAnalogMaxValue() / 2){
+    modulatorFrequency = map(value, 0, Motherboard.getAnalogMaxValue() / 2, 0, 40);
+    modulatorAmplitude = (float)map(value, 0, Motherboard.getAnalogMaxValue() / 2, 0.001, .01);
   }else{
-    modulatorFrequency = map(value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, 1000);
-    modulatorAmplitude = (float)map(value, getInstance()->device->getAnalogMaxValue() / 2, getInstance()->device->getAnalogMaxValue(), 0, .5);
+    modulatorFrequency = map(value, Motherboard.getAnalogMaxValue() / 2, Motherboard.getAnalogMaxValue(), 0, 1000);
+    modulatorAmplitude = (float)map(value, Motherboard.getAnalogMaxValue() / 2, Motherboard.getAnalogMaxValue(), 0, .5);
   }
   
   if(getInstance()->modulatorFrequency != modulatorFrequency){
@@ -577,25 +583,25 @@ inline void Synth::onFmChange(byte inputIndex, float value, int diffToPrevious){
  * On MIDI FM Change
  */
 void Synth::onMidiFmChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
-  );
-  
-  getInstance()->device->setPotentiometer(3, mapValue);
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  Motherboard.setPotentiometer(3, mapValue);
 }
 
 /**
  * On Attack Change
  */
-inline void Synth::onAttackChange(byte inputIndex, float value, int diffToPrevious){
+inline void Synth::onAttackChange(byte inputIndex, float value, float diffToPrevious){
   unsigned int attack = map(
     value,
-    getInstance()->device->getAnalogMinValue(),
-    getInstance()->device->getAnalogMaxValue(),
+    Motherboard.getAnalogMinValue(),
+    Motherboard.getAnalogMaxValue(),
     0,
     2000
   );
@@ -611,25 +617,25 @@ inline void Synth::onAttackChange(byte inputIndex, float value, int diffToPrevio
  * On MIDI Attack Change
  */
 void Synth::onMidiAttackChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
-  );
-  
-  getInstance()->device->setPotentiometer(4, mapValue);
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  Motherboard.setPotentiometer(4, mapValue);
 }
 
 /**
  * On Release Change
  */
-inline void Synth::onReleaseChange(byte inputIndex, float value, int diffToPrevious){
+inline void Synth::onReleaseChange(byte inputIndex, float value, float diffToPrevious){
   unsigned int release = map(
     value, 
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue(),
+    Motherboard.getAnalogMinValue(), 
+    Motherboard.getAnalogMaxValue(),
     0,
     2000
   );
@@ -645,15 +651,15 @@ inline void Synth::onReleaseChange(byte inputIndex, float value, int diffToPrevi
  * On MIDI Release Change
  */
 void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    getInstance()->device->getAnalogMinValue(), 
-    getInstance()->device->getAnalogMaxValue()
-  );
-  
-  getInstance()->device->setPotentiometer(5, mapValue);
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  Motherboard.setPotentiometer(5, mapValue);
 }
 
 #endif
