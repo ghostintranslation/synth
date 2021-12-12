@@ -22,15 +22,14 @@ class Synth{
     
     Voice *voices[voiceCount];
     byte actualVoiceCount = 1;
-    byte synthesis;
     byte mode;
     int parameter;
     byte portamento = 255;
-    unsigned int arpTime;
-    elapsedMillis elapsedTime;
-    byte arpIndex;
-    byte arpNotesPlaying;
-    byte arpNotes[voiceCount];
+//    unsigned int arpTime;
+//    elapsedMillis elapsedTime;
+//    byte arpIndex;
+//    byte arpNotesPlaying;
+//    byte arpNotes[voiceCount];
     unsigned int attack;
     unsigned int release;
     int modulatorFrequency;
@@ -38,6 +37,8 @@ class Synth{
     float shape;
     byte updateMillis = 10;
     elapsedMillis clockUpdate;
+
+    byte cvNoteIndex = 0;
     
     byte modeInputIndex = 0;
     byte parameterInputIndex = 1;
@@ -46,6 +47,14 @@ class Synth{
     byte attackInputIndex = 4;
     byte releaseInputIndex = 5;
 
+    InputPotentiometer* pot1;
+    InputPotentiometer* pot2;
+    InputPotentiometer* pot3;
+    InputPotentiometer* pot4;
+    InputPotentiometer* pot5;
+    InputPotentiometer* pot6;
+    Led* led1;
+    Led* led2;
     AudioConnection* patchCords[voiceCount/4 + voiceCount]; 
     AudioMixer4 *mixers[voiceCount/2];
     AudioMixer4 *output;
@@ -54,6 +63,10 @@ class Synth{
     static Synth *getInstance();
     void init();
     void update();
+    static void onChangeQuantized(byte inputIndex, int note);
+//    static void onGateOpen(byte inputIndex);
+//    static void onGateClose(byte inputIndex);
+    static void onVelocityChange(byte inputIndex, float value, float diffToPrevious);
     static void noteOn(byte channel, byte note, byte velocity);
     static void noteOff(byte channel, byte note, byte velocity);
     static void stop();
@@ -66,13 +79,16 @@ class Synth{
     static void onFmChange(byte inputIndex, float value, float diffToPrevious);
     static void onAttackChange(byte inputIndex, float value, float diffToPrevious);
     static void onReleaseChange(byte inputIndex, float value, float diffToPrevious);
+//    static void onTriggerUp(byte inputIndex);
+//    static void onTriggerDown(byte inputIndex);
+    
     // Midi callbacks
-    static void onMidiModeChange(byte channel, byte control, byte value);
-    static void onMidiParamChange(byte channel, byte control, byte value);
-    static void onMidiShapeChange(byte channel, byte control, byte value);
-    static void onMidiFmChange(byte channel, byte control, byte value);
-    static void onMidiAttackChange(byte channel, byte control, byte value);
-    static void onMidiReleaseChange(byte channel, byte control, byte value);
+//    static void onMidiModeChange(byte channel, byte control, byte value);
+//    static void onMidiParamChange(byte channel, byte control, byte value);
+//    static void onMidiShapeChange(byte channel, byte control, byte value);
+//    static void onMidiFmChange(byte channel, byte control, byte value);
+//    static void onMidiAttackChange(byte channel, byte control, byte value);
+//    static void onMidiReleaseChange(byte channel, byte control, byte value);
 };
 
 // Singleton pre init
@@ -82,7 +98,6 @@ Synth * Synth::instance = nullptr;
  * Constructor
  */
 inline Synth::Synth(){
-  this->synthesis = 0;
   this->attack = 10;
   this->release = 2000;
 
@@ -108,13 +123,12 @@ inline Synth::Synth(){
     this->voices[i]->setUpdateMillis(this->updateMillis);
     this->patchCords[i] = new AudioConnection(*this->voices[i]->getOutput(), 0, *this->mixers[i/4], i%4);
   }
-  
 }
 
 /**
  * Singleton instance
  */
-inline Synth *Synth::getInstance()    {
+inline Synth *Synth::getInstance() {
   if (!instance)
      instance = new Synth;
   return instance;
@@ -124,33 +138,65 @@ inline Synth *Synth::getInstance()    {
  * Init
  */
 inline void Synth::init(){
-  Motherboard.init(
-    "Synth",
-    2,
-    {
-      Potentiometer, Potentiometer,
-      Potentiometer, Potentiometer,
-      Potentiometer, Potentiometer,
-      CvIn, CvIn
-    },
-    {
-      None, None,
-      None, None,
-      None, None,
-      None, None
-    }
-  );
+
+  // Mode
+  this->pot1 = new InputPotentiometer(0, "Mode");
+  this->pot1->setOnChange(onModeChange);
+
+  // Octave
+  this->pot2 = new InputPotentiometer(1, "Octave");
+  this->pot2->setOnChange(onParamChange);
+
+  // Shape
+  this->pot3 = new InputPotentiometer(2, "Shape");
+  this->pot3->setOnChange(onShapeChange);
+
+  // Level
+  this->pot4 = new InputPotentiometer(3, "Level");
+  this->pot4->setOnChange(onFmChange);
+
+  // Attack
+  this->pot5 = new InputPotentiometer(4, "Attack");
+  this->pot5->setOnChange(onAttackChange);
+
+  // Release
+  this->pot6 = new InputPotentiometer(5, "Release");
+  this->pot6->setOnChange(onReleaseChange);
+  
+  
+//  CvIn* in7 = new CvIn();
+//  in7->setOnChangeQuantized(onChangeQuantized);
+//  in7->setSmoothing(0);
+//
+//  CvIn* in8 = new CvIn();
+////  in8->setOnGateOpen(onGateOpen);
+////  in8->setOnGateClose(onGateClose);
+//  in8->setOnChange(onVelocityChange);
+//  in8->setSmoothing(0);
+
+  this->led1 = new Led(0);
+  this->led2 = new Led(0);
+
+  InputMidiNote* inputMidiNote = new InputMidiNote("inputMidiNote1", 1);
+  inputMidiNote->setHandleMidiNoteOn(noteOn);
+  inputMidiNote->setHandleMidiNoteOff(noteOff);
+  
+  Motherboard.setDebug(true);
+  Motherboard.init("Synth", 2);
 
   // Device callbacks
-  Motherboard.setHandleChange(0, onModeChange);
-  Motherboard.setHandleChange(1, onParamChange);
-  Motherboard.setHandleChange(2, onShapeChange);
-  Motherboard.setHandleChange(3, onFmChange);
-  Motherboard.setHandleChange(4, onAttackChange);
-  Motherboard.setHandleChange(5, onReleaseChange);
+//  Motherboard.setHandleChange(0, onModeChange);
+//  Motherboard.setHandleChange(1, onParamChange);
+//  Motherboard.setHandleChange(2, onShapeChange);
+//  Motherboard.setHandleChange(3, onFmChange);
+//  Motherboard.setHandleChange(4, onAttackChange);
+//  Motherboard.setHandleChange(5, onReleaseChange);
+//  Motherboard.setHandleChangeQuantized(6, onMidiModeChange);
+//  Motherboard.setHandleTriggerUp(6, onTriggerUp);
+//  Motherboard.setHandleTriggerDown(6, onTriggerDown);
   
-//  this->device->setHandleMidiNoteOn(noteOn);
-//  this->device->setHandleMidiNoteOff(noteOff);
+//  Motherboard.setHandleMidiNoteOn(noteOn);
+//  Motherboard.setHandleMidiNoteOff(noteOff);
 //  this->device->setHandleMidiControlChange(0, 0, "Mode",    onMidiModeChange);
 //  this->device->setHandleMidiControlChange(0, 1, "Param",   onMidiParamChange);
 //  this->device->setHandleMidiControlChange(0, 2, "Shape",   onMidiShapeChange);
@@ -158,6 +204,40 @@ inline void Synth::init(){
 //  this->device->setHandleMidiControlChange(0, 4, "Attack",  onMidiAttackChange);
 //  this->device->setHandleMidiControlChange(0, 5, "Release", onMidiReleaseChange);
 }
+
+//inline void Synth::onTriggerUp(byte inputIndex){
+//  Serial.println("onTriggerUp");
+//}
+//
+//inline void Synth::onTriggerDown(byte inputIndex){
+//  Serial.println("onTriggerDown");
+//}
+
+
+inline void Synth::onChangeQuantized(byte inputIndex, int note){
+  Serial.print("onChangeQuantized ");
+  Serial.println(note);
+
+  getInstance()->cvNoteIndex = inputIndex;
+  getInstance()->voices[0]->noteOn(note);
+}
+
+
+inline void Synth::onVelocityChange(byte inputIndex, float value, float diffToPrevious){  
+    float gainValue = map(value, 0, 4095, 0, 1);
+    getInstance()->voices[0]->getOutput()->gain(1, gainValue);
+}
+//inline void Synth::onGateOpen(byte inputIndex){
+//  Serial.print("onGateOpen ");
+//  noteOn(0, getInstance()->cvNote, 127);
+//}
+//
+//inline void Synth::onGateClose(byte inputIndex){
+//  Serial.print("onGateClose ");
+//  Serial.println(inputIndex);
+//  
+//  noteOff(0, getInstance()->cvNote, 127);
+//}
 
 /**
  * Note on
@@ -170,7 +250,7 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
   unsigned long closestVoiceNote = sizeof(unsigned long);
   
   switch (modes(getInstance()->mode)){
-    case SYNTH: 
+    case SYNTH:
       if(getInstance()->portamento == 0){
         for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
           // If no portamento we get an inactive voice to play the new note
@@ -234,12 +314,12 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
         getInstance()->voices[closestVoice]->noteOn(note);
       }
     break;
-    case ARP:
-      if(getInstance()->arpNotesPlaying < voiceCount){
-        getInstance()->arpNotesPlaying++;
-      }
-      getInstance()->arpNotes[getInstance()->arpNotesPlaying-1] = note;
-    break;
+//    case ARP:
+//      if(getInstance()->arpNotesPlaying < voiceCount){
+//        getInstance()->arpNotesPlaying++;
+//      }
+//      getInstance()->arpNotes[getInstance()->arpNotesPlaying-1] = note;
+//    break;
     case DRONE:
       // In Drone mode, only one voice playing at a time
       for (int i = 0; i < voiceCount ; i++) {
@@ -249,7 +329,8 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
     break;
   }
   
-  Motherboard.setLED(0, MotherboardNamespace::Led::Status::On);
+//  Motherboard.setLED(0, MotherboardNamespace::Led::Status::On);
+  getInstance()->led1->set(Led::Status::On, 4095);
 }
 
 /**
@@ -264,29 +345,30 @@ inline void Synth::noteOff(byte channel, byte note, byte velocity){
         }
       }
     break;
-    case ARP:
-      for (int i = 0; i < voiceCount ; i++) {
-        // Finding the index where the note was in the array
-        if(getInstance()->arpNotes[i] == note){
-          getInstance()->voices[i]->noteOff();
-          // Shifting the elemts after this index
-          for (int j = i; j < voiceCount; ++j){
-            getInstance()->arpNotes[j] = getInstance()->arpNotes[j + 1];
-          }
-        }
-      }
-
-      // Decreasing the number of playing notes
-      if(getInstance()->arpNotesPlaying > 0){
-        getInstance()->arpNotesPlaying--;
-      }
-    break;
+//    case ARP:
+//      for (int i = 0; i < voiceCount ; i++) {
+//        // Finding the index where the note was in the array
+//        if(getInstance()->arpNotes[i] == note){
+//          getInstance()->voices[i]->noteOff();
+//          // Shifting the elemts after this index
+//          for (int j = i; j < voiceCount; ++j){
+//            getInstance()->arpNotes[j] = getInstance()->arpNotes[j + 1];
+//          }
+//        }
+//      }
+//
+//      // Decreasing the number of playing notes
+//      if(getInstance()->arpNotesPlaying > 0){
+//        getInstance()->arpNotesPlaying--;
+//      }
+//    break;
 
     default:
     break;
   }
   
-  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
+//  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
+  getInstance()->led1->set(Led::Status::Off, 0);
 }
 
 /**
@@ -297,7 +379,8 @@ inline void Synth::stop(){
     getInstance()->voices[i]->noteOff();
   }
   
-  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
+//  Motherboard.setLED(0, MotherboardNamespace::Led::Status::Off);
+  getInstance()->led1->set(Led::Status::Off, 0);
 }
 
 /**
@@ -325,35 +408,35 @@ inline void Synth::update(){
 
   
   // Arp
-  if(modes(this->mode) == ARP){
-    if (this->elapsedTime >= this->arpTime) {
-
-      if(this->arpNotesPlaying > 0){
-        if(this->arpIndex == 0){
-          if(this->voices[(this->arpNotesPlaying-1)]->isNotePlayed()){
-            this->voices[(this->arpNotesPlaying-1)]->noteOff();
-          }
-        }else{
-          if(this->voices[(this->arpIndex-1)]->isNotePlayed()){
-            this->voices[(this->arpIndex-1)]->noteOff();
-          }
-        }
-        this->voices[this->arpIndex]->setGlide(255);
-        this->voices[this->arpIndex]->noteOn(this->arpNotes[this->arpIndex]);
-      }else{
-        for (byte i = 0; i < voiceCount ; i++) {
-          getInstance()->voices[i]->noteOff();
-        }
-      }
-        
-      this->arpIndex++;
-      if(this->arpIndex > this->arpNotesPlaying-1 ){
-        this->arpIndex = 0;
-      }
-      
-      this->elapsedTime = 0;
-    }
-  }
+//  if(modes(this->mode) == ARP){
+//    if (this->elapsedTime >= this->arpTime) {
+//
+//      if(this->arpNotesPlaying > 0){
+//        if(this->arpIndex == 0){
+//          if(this->voices[(this->arpNotesPlaying-1)]->isNotePlayed()){
+//            this->voices[(this->arpNotesPlaying-1)]->noteOff();
+//          }
+//        }else{
+//          if(this->voices[(this->arpIndex-1)]->isNotePlayed()){
+//            this->voices[(this->arpIndex-1)]->noteOff();
+//          }
+//        }
+//        this->voices[this->arpIndex]->setGlide(255);
+//        this->voices[this->arpIndex]->noteOn(this->arpNotes[this->arpIndex]);
+//      }else{
+//        for (byte i = 0; i < voiceCount ; i++) {
+//          getInstance()->voices[i]->noteOff();
+//        }
+//      }
+//        
+//      this->arpIndex++;
+//      if(this->arpIndex > this->arpNotesPlaying-1 ){
+//        this->arpIndex = 0;
+//      }
+//      
+//      this->elapsedTime = 0;
+//    }
+//  }
 }
 
 
@@ -405,6 +488,7 @@ inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevio
   }
 
   if(modes(getInstance()->mode) == DRONE){
+    Serial.println("DRONE");
     getInstance()->mixers[0]->gain(0, 0.6 );
     getInstance()->mixers[0]->gain(1, 0 );
     getInstance()->mixers[0]->gain(2, 0 );
@@ -428,18 +512,18 @@ inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevio
 /**
  * On MIDI Mode Change
  */
-void Synth::onMidiModeChange(byte channel, byte control, byte value){
-  unsigned int mapValue = map(
-    value, 
-    0,
-    127,
-    
-    Motherboard.getAnalogMinValue(), 
-    Motherboard.getAnalogMaxValue()
-  );
-  
-  getInstance()->onModeChange(0, mapValue, 255);
-}
+//void Synth::onMidiModeChange(byte channel, byte control, byte value){
+//  unsigned int mapValue = map(
+//    value, 
+//    0,
+//    127,
+//    
+//    Motherboard.getAnalogMinValue(), 
+//    Motherboard.getAnalogMaxValue()
+//  );
+//  
+//  getInstance()->onModeChange(0, mapValue, 255);
+//}
 
 /**
  * On Param Change
@@ -447,53 +531,53 @@ void Synth::onMidiModeChange(byte channel, byte control, byte value){
 inline void Synth::onParamChange(byte inputIndex, float value, float diffToPrevious){  
   getInstance()->parameter = value;
   
-  switch(modes(getInstance()->mode)){
-    case SYNTH:
-    {
-      // Portamento
-      getInstance()->portamento = constrain(
-        map(
-          value,
-          Motherboard.getAnalogMinValue(),
-          Motherboard.getAnalogMaxValue(),
-          255,
-          0
-        ),
-        0,
-        255
-      );
-
-      // Set it to all voices
-      for (int i = 0; i < voiceCount ; i++) {
-        getInstance()->voices[i]->setGlide(getInstance()->portamento);
-      }
-    }
-    break;
+//  switch(modes(getInstance()->mode)){
+//    case SYNTH:
+//    {
+//      // Portamento
+//      getInstance()->portamento = constrain(
+//        map(
+//          value,
+//          Motherboard.getAnalogMinValue(),
+//          Motherboard.getAnalogMaxValue(),
+//          255,
+//          0
+//        ),
+//        0,
+//        255
+//      );
+//
+//      // Set it to all voices
+//      for (int i = 0; i < voiceCount ; i++) {
+//        getInstance()->voices[i]->setGlide(getInstance()->portamento);
+//      }
+//    }
+//    break;
     
-    case ARP: 
-      // Time
-      getInstance()->arpTime = map(
-        value,
-        Motherboard.getAnalogMinValue(),
-        Motherboard.getAnalogMaxValue(),
-        1,
-        500
-      );
-    break;
-    
-    case DRONE: 
-      // Free frequency
-      for (int i = 0; i < voiceCount ; i++) {
-        getInstance()->voices[i]->setFrequencyTarget(value);
-      }
-    break;
-  }
+//    case ARP: 
+//      // Time
+//      getInstance()->arpTime = map(
+//        value,
+//        Motherboard.getAnalogMinValue(),
+//        Motherboard.getAnalogMaxValue(),
+//        1,
+//        500
+//      );
+//    break;
+//    
+//    case DRONE: 
+//      // Free frequency
+//      for (int i = 0; i < voiceCount ; i++) {
+//        getInstance()->voices[i]->setFrequencyTarget(value);
+//      }
+//    break;
+//  }
 }
 
 /**
  * On MIDI Param Change
  */
-void Synth::onMidiParamChange(byte channel, byte control, byte value){
+//void Synth::onMidiParamChange(byte channel, byte control, byte value){
 //  unsigned int mapValue = map(
 //    value, 
 //    0,
@@ -503,7 +587,7 @@ void Synth::onMidiParamChange(byte channel, byte control, byte value){
 //  );
 //  
 //  Motherboard.setPotentiometer(1, mapValue);
-}
+//}
 
 /**
  * On Shape Change
@@ -526,7 +610,7 @@ inline void Synth::onShapeChange(byte inputIndex, float value, float diffToPrevi
 /**
  * On MIDI Shape Change
  */
-void Synth::onMidiShapeChange(byte channel, byte control, byte value){
+//void Synth::onMidiShapeChange(byte channel, byte control, byte value){
 //  unsigned int mapValue = map(
 //    value, 
 //    0,
@@ -536,7 +620,7 @@ void Synth::onMidiShapeChange(byte channel, byte control, byte value){
 //  );
 //  
 //  Motherboard.setPotentiometer(2, mapValue);
-}
+//}
 
 
 /**
@@ -582,7 +666,7 @@ inline void Synth::onFmChange(byte inputIndex, float value, float diffToPrevious
 /**
  * On MIDI FM Change
  */
-void Synth::onMidiFmChange(byte channel, byte control, byte value){
+//void Synth::onMidiFmChange(byte channel, byte control, byte value){
 //  unsigned int mapValue = map(
 //    value, 
 //    0,
@@ -592,7 +676,7 @@ void Synth::onMidiFmChange(byte channel, byte control, byte value){
 //  );
 //  
 //  Motherboard.setPotentiometer(3, mapValue);
-}
+//}
 
 /**
  * On Attack Change
@@ -616,7 +700,7 @@ inline void Synth::onAttackChange(byte inputIndex, float value, float diffToPrev
 /**
  * On MIDI Attack Change
  */
-void Synth::onMidiAttackChange(byte channel, byte control, byte value){
+//void Synth::onMidiAttackChange(byte channel, byte control, byte value){
 //  unsigned int mapValue = map(
 //    value, 
 //    0,
@@ -626,7 +710,7 @@ void Synth::onMidiAttackChange(byte channel, byte control, byte value){
 //  );
 //  
 //  Motherboard.setPotentiometer(4, mapValue);
-}
+//}
 
 /**
  * On Release Change
@@ -650,7 +734,7 @@ inline void Synth::onReleaseChange(byte inputIndex, float value, float diffToPre
 /**
  * On MIDI Release Change
  */
-void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
+//void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
 //  unsigned int mapValue = map(
 //    value, 
 //    0,
@@ -660,6 +744,6 @@ void Synth::onMidiReleaseChange(byte channel, byte control, byte value){
 //  );
 //  
 //  Motherboard.setPotentiometer(5, mapValue);
-}
+//}
 
 #endif

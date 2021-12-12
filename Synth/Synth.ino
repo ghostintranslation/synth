@@ -35,17 +35,15 @@ void setup() {
   Serial.begin(115200);
   
   while (!Serial && millis() < 2500); // wait for serial monitor
-  
+
+//  Motherboard.setDebug(true);
   synth->init();
 
   // Audio connections require memory to work.
   AudioMemory(40);
 
   audioBoard.enable();
-  audioBoard.volume(0.5);
-
-  // Ready!
-  Serial.println("Ready!");
+  audioBoard.volume(0.3);
 }
 
 void loop() {

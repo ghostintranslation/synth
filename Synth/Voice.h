@@ -119,6 +119,7 @@ inline Voice::Voice(){
  * Update
  */
 inline void Voice::update(){
+  this->intervalGlide = 255;
   if(this->intervalGlide < 254){
       if(this->frequencyTarget != this->freq){
         this->freq += ((float)this->intervalGlide * (this->frequencyTarget - this->freq) / (float)255)  / ((float)100 / (float)this->updateMillis);

@@ -11,30 +11,29 @@
 #define SPI_MOSI_PIN 11
 #define ANALOG_IN_1_PIN 14
 
-// Callback types
-using PressDownCallback = void (*)(byte);
-using LongPressDownCallback = void (*)(byte);
-using PressUpCallback = void (*)(byte);
-using LongPressUpCallback = void (*)(byte);
-using ChangeCallback = void (*)(byte inputIndex, float value, float diff);
 
-#include "Potentiometer.h"
-#include "Button.h"
-#include "RotaryEncoder.h"
-#include "TouchPad.h"
-#include "CvIn.h"
-#include "ToggleOnOn.h"
-#include "ToggleOnOffOn.h"
+// Callback types
+//using TriggerDownCallback = void (*)(byte);
+//using LongTriggerDownCallback = void (*)(byte);
+//using TriggerUpCallback = void (*)(byte);
+//using LongTriggerUpCallback = void (*)(byte);
+using EdgeCallback = void (*)(String);
+using ChangeCallback = void (*)(String name, float value, float diff);
+using ChangeQuantizedCallback = void (*)(byte inputIndex, int value);
+
+
+//#include "IORegistrar.h"
+#include "InputPotentiometer.h"
+#include "InputMidiNote.h"
+#include "OutputJack.h"
 #include "Led.h"
-#include "CvOut.h"
-#include "None.h"
 
 class IOManager
 {
 public:
 
     // Init
-    void init(byte columnNumber, std::vector<Input *> inputs, std::vector<Output *> outputs);
+    void init(byte columnNumber);
 
     // Update
     void update();
@@ -43,19 +42,25 @@ public:
     void print();
 
     float getInputValue(byte index);
-    float getOutputValue(byte index);
-    void setOutputValue(byte index, unsigned int value);
-    void setLED(byte index, Led::Status status, unsigned int brightness);
+//    float getOutputValue(byte index);
+//    void setOutputValue(byte index, unsigned int value);
+//    void setLED(byte index, Led::Status status, unsigned int brightness);
+//    void setSmoothing(byte smoothing);
     unsigned int getAnalogMaxValue();
     unsigned int getAnalogMinValue();
-    byte getMidiChannel();
+    byte getDipswitchValue();
 
+    
     // Callbacks
-    void setHandlePressDown(byte inputIndex, PressDownCallback fptr);
-    void setHandleLongPressDown(byte inputIndex, LongPressDownCallback fptr);
-    void setHandlePressUp(byte inputIndex, PressUpCallback fptr);
-    void setHandleLongPressUp(byte inputIndex, LongPressUpCallback fptr);
-    void setHandleChange(byte inputIndex, ChangeCallback fptr);
+//    void setHandleTriggerDown(byte inputIndex, TriggerDownCallback fptr);
+//    void setHandleLongTriggerDown(byte inputIndex, LongTriggerDownCallback fptr);
+//    void setHandleTriggerUp(byte inputIndex, TriggerUpCallback fptr);
+//    void setHandleLongTriggerUp(byte inputIndex, LongTriggerUpCallback fptr);
+//    void setHandleChange(byte inputIndex, ChangeCallback fptr);
+//    void setHandleChangeQuantized(byte inputIndex, ChangeQuantizedCallback fptr);
+
+    // Registrar
+    
 
 private:
     // Only Motherboard can access this instance
@@ -69,33 +74,40 @@ private:
     IOManager();
 
     // Inputs/Outputs
-    int inputNumber;
-    byte outputNumber;
-    byte ledNumber;
-    byte currentInputIndex;
-    byte currentOutputIndex;
-
-    Input **inputs;
-    Output **outputs;
-    Led **leds;
+    byte maxIoNumber = 0;
+    byte currentInputIndex = 0;
+    byte currentOutputIndex = 0;
     byte analogResolution = 12;
-    byte midiChannel;
-
+    byte dipswitchValue = 0;
     void iterateIO();
-    void updateIO();
     void readWriteIO();
+    
+    static void handleMidiControlChange(byte channel, byte controlNumber, byte value);
 
+    // Calibration
+    byte calibrationSequenceSteps[4]= {15, 7, 15, 7};
+    byte calibrationSequenceCurrentStep = 0;
+    elapsedMillis calibrationSequenceClock;
+    const unsigned int calibrationSequenceClockMax = 5000;
+    void calibrate();
+    
     // Refresh clock
-    const unsigned int intervalRefresh = 2;
-    elapsedMicros clockRefresh;
+    const unsigned int intervalReadWrite = 4;
+    elapsedMicros clockReadWrite;
+    const unsigned int intervalIteration = 20000;
+    elapsedMicros clockIteration;
 
     // PWM clock
     const float intervalPWM = 20000;
     elapsedMicros clockPWM;
+    
+    // Regitrar
 };
 
 // Instance pre init
 IOManager *IOManager::instance = nullptr;
+
+
 
 /**
  * Constructor
@@ -114,42 +126,9 @@ inline IOManager *IOManager::getInstance()
     return instance;
 }
 
-inline void IOManager::init(byte columnNumber, std::vector<Input *> inputs, std::vector<Output *> outputs)
+inline void IOManager::init(byte columnNumber)
 {
-    Serial.println("init");
-
-    byte i = 0;
-    this->inputNumber = inputs.size();
-    this->inputs = new Input *[this->inputNumber];
-    for (Input *input : inputs)
-    {
-        this->inputs[i] = input;
-        this->inputs[i]->setIndex(i);
-        
-        input->setPin(ANALOG_IN_1_PIN); //TODO: MAKE IT DYNAMIC
-        i++;
-    }
-
-    i = 0;
-    this->outputNumber = outputs.size();
-    this->outputs = new Output *[this->outputNumber];
-    for (Output *output : outputs)
-    {
-        this->outputs[i] = output;
-        this->outputs[i]->setIndex(i);
-        i++;
-    }
-
-    // Init of the leds
-    this->ledNumber = columnNumber * 3;
-    this->leds = new Led *[getInstance()->ledNumber];
-    for (int i = 0; i < this->ledNumber; i++)
-    {
-        this->leds[i] = new Led();
-        this->leds[i]->setIndex(i);
-    }
-
-    Serial.println("init2");
+    this->maxIoNumber = columnNumber * 3 + columnNumber;
 
     // Pin modes
     pinMode(MIDI_CHANNEL_A_PIN, INPUT_PULLUP);
@@ -167,7 +146,24 @@ inline void IOManager::init(byte columnNumber, std::vector<Input *> inputs, std:
     SPI.setClockDivider(SPI_CLOCK_DIV2);
     SPI.begin();
 
-    Serial.println("init3");
+//    for(unsigned int i = 0; i<IORegistrar::inputsSize; i++){
+//      IORegistrar::getInputs()[i]->transitionTo(new IOStateDefault());
+//    }
+//    for(unsigned int i = 0; i<IORegistrar::outputsSize; i++){
+//      IORegistrar::getOutputs()[i]->transitionTo(new IOStateDefault());
+//    }
+//    for(unsigned int i = 0; i<IORegistrar::ledsSize; i++){
+//      IORegistrar::getLeds()[i]->transitionTo(new IOStateDefault());
+//    }
+    for(PhysicalInput* i : PhysicalInput::getEntities()){
+      i->transitionTo(new IOStateDefault());
+    }
+    for(PhysicalOutput* i : PhysicalOutput::getEntities()){
+      i->transitionTo(new IOStateDefault());
+    }
+    for(Led* i : Led::getEntities()){
+      i->transitionTo(new IOStateDefault());
+    }
 }
 
 /**
@@ -175,43 +171,122 @@ inline void IOManager::init(byte columnNumber, std::vector<Input *> inputs, std:
  */
 inline void IOManager::update()
 {
-    if (this->clockRefresh >= this->intervalRefresh)
+    if (this->clockIteration >= this->intervalIteration)
+    {
+//      for(unsigned int i = 0; i<IO::inputsSize; i++){
+//        Serial.println(IO::getInputs()[i]->getClassName());
+//      }
+        // Iterate to the next input and output
+        this->iterateIO();
+
+        this->clockIteration = 0;
+    }
+    
+    if (this->clockReadWrite >= this->intervalReadWrite)
     {
         // Read the current input and set the current output
         this->readWriteIO();
 
-        // Update all inputs and outputs
-        this->updateIO();
-
-        // Iterate to the next input and output
-        this->iterateIO();
-
-        this->clockRefresh = 0;
+        this->clockReadWrite = 0;
     }
+
+    if (clockPWM > intervalPWM)
+    {
+        clockPWM = 0;
+    }
+
+    
+    if(this->calibrationSequenceCurrentStep == 0){
+      this->calibrationSequenceClock = 0;
+    }
+    if(this->calibrationSequenceCurrentStep < 4){
+      if(this->calibrationSequenceSteps[this->calibrationSequenceCurrentStep] == this->getDipswitchValue()){
+        this->calibrationSequenceCurrentStep++;
+        this->calibrationSequenceCurrentStep %= 5;
+        this->calibrationSequenceClock = 0;
+
+        if(this->calibrationSequenceCurrentStep == 4){
+          // We switch now to calibrate mode
+//          for(unsigned int i = 0; i<IORegistrar::inputsSize; i++){
+//            IORegistrar::getInputs()[i]->transitionTo(new IOStateCalibrate);
+//          }
+
+          for(PhysicalInput* i : PhysicalInput::getEntities()){
+            i->transitionTo(new IOStateCalibrate());
+          }
+
+//          for(unsigned int i = 0; i<IO::outputsSize; i++){
+//            IO::getOutputs()[i]->transitionTo(new IOStateCalibrate());
+//          }
+//          for(unsigned int i = 0; i<IO::ledsSize; i++){
+//            IO::getLeds()[i]->transitionTo(new IOStateCalibrate());
+//          }
+        }
+      }
+      if(this->calibrationSequenceClock > this->calibrationSequenceClockMax){
+        this->calibrationSequenceClock = 0;
+        this->calibrationSequenceCurrentStep = 0;
+      }
+    }else{
+//      for(unsigned int i = 0; i<IORegistrar::ledsSize; i++){
+//        IORegistrar::getLeds()[i]->set(Led::Status::Blink, 4095);
+//      }
+          for(Led* i : Led::getEntities()){
+            i->set(Led::Status::Blink, 4095);
+          }
+
+      this->calibrate();
+          
+      if(this->getDipswitchValue() == 15){
+        // Exit calibration
+        this->calibrationSequenceClock = 0;
+        this->calibrationSequenceCurrentStep = 0;
+//        for(unsigned int i = 0; i<IORegistrar::ledsSize; i++){
+//          IORegistrar::getLeds()[i]->set(Led::Status::Off, 0);
+//        }
+          for(Led* i : Led::getEntities()){
+            i->set(Led::Status::Off, 0);
+          }
+        
+//        for(unsigned int i = 0; i<IORegistrar::inputsSize; i++){
+//          IORegistrar::getInputs()[i]->transitionTo(new IOStateDefault);
+//        }
+          for(PhysicalInput* i : PhysicalInput::getEntities()){
+            i->transitionTo(new IOStateDefault());
+          }
+      }
+    }
+    
 }
 
 /**
  * Iterate over the inputs
  */
 inline void IOManager::iterateIO()
-{
-    if(this->inputNumber > 0){
+{  
+//  if(IORegistrar::inputsSize > 0){
+  if(PhysicalInput::getCount() > 0){
+    do{
+      // Iterate to the next or Iterate back to the first one
       this->currentInputIndex++;
-      this->currentInputIndex = this->currentInputIndex % this->inputNumber;
-      while (this->inputs[this->currentInputIndex]->getType() == "None" && this->currentInputIndex < (this->inputNumber - 1))
-      {
-          this->currentInputIndex++;
-      }
-    }
+      this->currentInputIndex = this->currentInputIndex % PhysicalInput::getCount();
 
-    if(this->outputNumber > 0){
+    // If current input Position is greater than the allowed max
+    // then iterate again. This way we skip useless Inputs.
+    }while(PhysicalInput::getEntities()[this->currentInputIndex]->getIndex() > this->maxIoNumber);
+  }
+
+//  if(IORegistrar::outputsSize > 0){
+  if(PhysicalOutput::getCount() > 0){
+    do{
+      // Iterate to the next or Iterate back to the first one
       this->currentOutputIndex++;
-      this->currentOutputIndex = this->currentOutputIndex % this->outputNumber;
-      while (this->outputs[this->currentOutputIndex]->getType() == "None" && this->currentOutputIndex < (this->outputNumber - 1))
-      {
-          this->currentOutputIndex++;
-      }
-    }
+      this->currentOutputIndex = this->currentOutputIndex % PhysicalOutput::getCount();
+
+    // If current input Position is greater than the allowed max
+    // then iterate again. This way we skip useless Inputs.
+    }while(PhysicalOutput::getEntities()[this->currentOutputIndex]->getIndex() > this->maxIoNumber);
+  }
 }
 
 /**
@@ -219,7 +294,7 @@ inline void IOManager::iterateIO()
  */
 inline void IOManager::readWriteIO()
 {
-    /**
+  /**
    * The data transfer goes like this:
    * - Set the latch to low (activate the shift registers)
    * - Send the byte to set the MUX and select the DAC
@@ -231,44 +306,46 @@ inline void IOManager::readWriteIO()
    * - Send the leds byte to complete the shift registers chain
    * - Set the latch to high  (shift registers actually set their pins and stop listening)
    */
+   
+    unsigned int currentInputPosition = PhysicalInput::getCount() > this->currentInputIndex ? PhysicalInput::getEntities()[this->currentInputIndex]->getIndex() : 0;
+    
+    unsigned int currentOutputPosition = PhysicalOutput::getCount() > this->currentOutputIndex ? PhysicalOutput::getEntities()[this->currentOutputIndex]->getIndex() : 0;
 
-    byte currentOutputDacIndex = this->currentOutputIndex / 2;
-    byte currentOutputDacChannel = this->currentOutputIndex % 2;
+    byte currentOutputDacIndex = currentOutputPosition / 2;
+    byte currentOutputDacChannel = currentOutputPosition % 2;
 
     // Set the latch to low (activate the shift registers)
     digitalWrite(REGISTERS_LATCH_PIN, LOW);
 
     // Preparing the shift register data
-    unsigned long shiftRegistersData;
-    if (this->inputs[this->currentInputIndex]->needsGround())
+    unsigned long shiftRegistersData =  0x00;
+    if (PhysicalInput::getCount() > this->currentInputIndex && PhysicalInput::getEntities()[this->currentInputIndex]->isDirectToTeensy())
     {
         shiftRegistersData = 0x80;
     }
-    else
-    {
-        shiftRegistersData = 0x00;
-    }
-    shiftRegistersData = shiftRegistersData | this->currentInputIndex << 4 | (0x0F ^ 0x01 << currentOutputDacIndex);
+    
+    shiftRegistersData = shiftRegistersData | currentInputPosition << 4 | (0x0F ^ 0x01 << currentOutputDacIndex);
 
     int ledsData = 0;
 
     // Preparing the LEDs data
-    for (int i = 0; i < this->ledNumber; i++)
-    {
-        if (this->leds[i]->getValue() == 0)
+    if(Led::getCount() > 0){
+      for(unsigned int i = 0; i<Led::getCount(); i++){
+        if (Led::getEntities()[i]->getValue() == 0)
         {
             continue;
         }
-        else if (this->leds[i]->getValue() == 4095)
+        else if (Led::getEntities()[i]->getValue() == 4095)
         {
-            bitSet(ledsData, this->leds[i]->getIndex());
+            bitSet(ledsData, Led::getEntities()[i]->getIndex());
         }
-        else if ((float)this->clockPWM / this->intervalPWM < (float)this->leds[i]->getValue() / 4095)
+        else if ((float)this->clockPWM / this->intervalPWM < (float)Led::getEntities()[i]->getValue() / 4095)
         {
-            bitSet(ledsData, this->leds[i]->getIndex());
+            bitSet(ledsData, Led::getEntities()[i]->getIndex());
         }
+      }
     }
-
+    
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
     // Send the byte to set the MUX and select the DAC
     SPI.transfer(shiftRegistersData);
@@ -280,19 +357,19 @@ inline void IOManager::readWriteIO()
     digitalWrite(REGISTERS_LATCH_PIN, HIGH);
 
     // Send the selected DAC data
-    if(this->outputNumber > 0 && this->outputs[this->currentOutputIndex]->getType() != "None"){
+    if(PhysicalOutput::getCount() > 0){
       if (currentOutputDacChannel == 0)
       {
           // Channel A
           SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-          SPI.transfer16(0x1000 | (int)this->outputs[this->currentOutputIndex]->getValue());
+          SPI.transfer16(0x1000 | constrain((int)PhysicalOutput::getEntities()[this->currentOutputIndex]->getValue(), 0, 4095));
           SPI.endTransaction();
       }
       else
       {
           // Channel B
           SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-          SPI.transfer16(0x9000 | (int)this->outputs[this->currentOutputIndex]->getValue());
+          SPI.transfer16(0x9000 | (int)PhysicalOutput::getEntities()[this->currentOutputIndex]->getValue());
           SPI.endTransaction();
       }
     }
@@ -310,80 +387,98 @@ inline void IOManager::readWriteIO()
     digitalWrite(REGISTERS_LATCH_PIN, HIGH);
 
     // Read the current input
-    this->inputs[this->currentInputIndex]->read();
-}
-
-inline void IOManager::updateIO()
-{
-
-    if (clockPWM > intervalPWM)
-    {
-        clockPWM = 0;
+    if(PhysicalInput::getCount() > this->currentInputIndex){
+      PhysicalInput::getEntities()[this->currentInputIndex]->read();
     }
 
-    for (int i = 0; i < this->inputNumber; i++)
-    {
-        inputs[i]->update(this->intervalRefresh);
+    // Read the dipswitch
+    this->dipswitchValue = 0;
+    bool bit1 = digitalRead(MIDI_CHANNEL_A_PIN);
+    bool bit2 = digitalRead(MIDI_CHANNEL_B_PIN);
+    bool bit3 = digitalRead(MIDI_CHANNEL_C_PIN);
+    bool bit4 = digitalRead(MIDI_CHANNEL_D_PIN);
+    if(!bit1){
+      bitSet(this->dipswitchValue, 0);
     }
-    for (int i = 0; i < this->outputNumber; i++)
-    {
-        outputs[i]->update(this->intervalRefresh);
+    if(!bit2){
+      bitSet(this->dipswitchValue, 1);
     }
-    for (int i = 0; i < this->ledNumber; i++)
-    {
-        leds[i]->update(this->intervalRefresh);
+    if(!bit3){
+      bitSet(this->dipswitchValue, 2);
+    }
+    if(!bit4){
+      bitSet(this->dipswitchValue, 3);
     }
 }
 
-/**
- * Handle press down on a button
- */
-inline void IOManager::setHandlePressDown(byte index, PressDownCallback fptr)
-{
-    this->inputs[index]->setPressDownCallback(fptr);
-}
 
-/**
- * Handle press up on a button
- */
-inline void IOManager::setHandlePressUp(byte index, PressUpCallback fptr)
-{
-    this->inputs[index]->setPressUpCallback(fptr);
-}
+//inline void IOManager::setSmoothing(byte smoothing){
+//  for(APhysicalInput* i : IO::getInputs()){
+//    i->setSmoothing(smoothing);
+//  }
+//  for(APhysicalOutput* o : IO::getOutputs()){
+//    o->setSmoothing(smoothing);
+//  }
+//}
 
-/**
- * Handle long press down on a button
- */
-inline void IOManager::setHandleLongPressDown(byte index, LongPressDownCallback fptr)
-{
-    this->inputs[index]->setLongPressDownCallback(fptr);
-}
 
-/**
- * Handle long press up on a button
- */
-inline void IOManager::setHandleLongPressUp(byte index, LongPressUpCallback fptr)
-{
-    this->inputs[index]->setLongPressUpCallback(fptr);
-}
+///**
+// * Handle press down on a button
+// */
+//inline void IOManager::setHandleTriggerDown(byte index, TriggerDownCallback fptr)
+//{
+//    this->inputs[index]->setTriggerDownCallback(fptr);
+//}
+//
+///**
+// * Handle press up on a button
+// */
+//inline void IOManager::setHandleTriggerUp(byte index, TriggerUpCallback fptr)
+//{
+//    this->inputs[index]->setTriggerUpCallback(fptr);
+//}
+//
+///**
+// * Handle long trigger down
+// */
+//inline void IOManager::setHandleLongTriggerDown(byte index, LongTriggerDownCallback fptr)
+//{
+//    this->inputs[index]->setLongTriggerDownCallback(fptr);
+//}
+//
+///**
+// * Handle long trigger up
+// */
+//inline void IOManager::setHandleLongTriggerUp(byte index, LongTriggerUpCallback fptr)
+//{
+//    this->inputs[index]->setLongTriggerUpCallback(fptr);
+//}
+//
+///**
+// * Handle change
+// */
+//inline void IOManager::setHandleChange(byte index, ChangeCallback fptr)
+//{
+//    this->inputs[index]->setChangeCallback(fptr);
+//}
+//
+///**
+// * Handle potentiometer
+// */
+//inline void IOManager::setHandleChangeQuantized(byte index, ChangeQuantizedCallback fptr)
+//{
+//    this->inputs[index]->setChangeQuantizedCallback(fptr);
+//}
 
-/**
- * Handle potentiometer
- */
-inline void IOManager::setHandleChange(byte index, ChangeCallback fptr)
-{
-    this->inputs[index]->setChangeCallback(fptr);
-}
+//inline void IOManager::setOutputValue(byte index, unsigned int value)
+//{
+//    IO::getOutputs()[index]->setTarget(value);
+//}
 
-inline void IOManager::setOutputValue(byte index, unsigned int value)
-{
-    this->outputs[index]->setTarget(value);
-}
-
-inline void IOManager::setLED(byte index, Led::Status status, unsigned int brightness = 4095)
-{
-    this->leds[index]->set(status, brightness);
-}
+//inline void IOManager::setLED(byte index, Led::Status status, unsigned int brightness = 4095)
+//{
+//    this->leds[index]->set(status, brightness);
+//}
 
 /**
  * Get input value
@@ -391,29 +486,29 @@ inline void IOManager::setLED(byte index, Led::Status status, unsigned int brigh
  */
 inline float IOManager::getInputValue(byte index)
 {
-  if(this->inputNumber > 0 && index < this->inputNumber){
-    return this->inputs[index]->getValue();
-  }else{
+//  if(IO::getInputs().size() > 0 && index < IO::getInputs().size()){
+//    return IO::getInputs()[index]->getValue();
+//  }else{
     return 0;
-  }
+//  }
 }
 
 /**
  * Get output value
  * @param byte index The index of the output
  */
-inline float IOManager::getOutputValue(byte index)
-{
-  if(this->outputNumber > 0 && index < this->outputNumber){
-    return this->outputs[index]->getValue();
-  }else{
-    return 0;
-  }
-}
+//inline float IOManager::getOutputValue(byte index)
+//{
+//  if(IO::getOutputs().size() > 0 && index < IO::getOutputs().size()){
+//    return IO::getOutputs()[index]->getValue();
+//  }else{
+//    return 0;
+//  }
+//}
 
-inline byte IOManager::getMidiChannel()
+inline byte IOManager::getDipswitchValue()
 {
-    return this->midiChannel;
+    return this->dipswitchValue;
 }
 
 /**
@@ -432,19 +527,62 @@ inline unsigned int IOManager::getAnalogMaxValue()
     return (1 << this->analogResolution) - 1;
 }
 
+inline void IOManager::handleMidiControlChange(byte channel, byte controlNumber, byte value){
+  //TODO: use the channel
+  
+//    for(APhysicalInput* i : IO::getInputs()){
+//        if(i->getMidiControlNumber() == controlNumber){
+//          int target = map(value, 0, 127, 0, 4095);
+//          i->setTarget(target);
+//        }
+//    }
+}
+
+inline void IOManager::calibrate(){
+  Serial.println("IOManager::calibrate()");
+  for(unsigned int i = 0; i<PhysicalInput::getCount(); i++){
+    if(PhysicalInput::getEntities()[i]->getClassName() == "InputPotentiometer"){
+      
+      if(PhysicalInput::getEntities()[i]->getTarget() > PhysicalInput::getEntities()[i]->getMin()){
+        PhysicalInput::getEntities()[i]->setMin(PhysicalInput::getEntities()[i]->getTarget());
+      }
+      if(PhysicalInput::getEntities()[i]->getTarget() < PhysicalInput::getEntities()[i]->getMax()){
+        PhysicalInput::getEntities()[i]->setMax(PhysicalInput::getEntities()[i]->getTarget());
+      }
+      
+      Serial.printf("%d %d %d\n", i, PhysicalInput::getEntities()[i]->getMin(), PhysicalInput::getEntities()[i]->getMax());
+    }
+  }
+
+}
+
+
+
 inline void IOManager::print(){
   Serial.print("Inputs: ");
-  for(int i=0; i<this->inputNumber; i++){
-    this->inputs[i]->print();
-    Serial.print(" ");
+  for(unsigned int i = 0; i< PhysicalInput::getCount(); i++){
+    PhysicalInput::getEntities()[i]->print();
+    Serial.print(" / ");
   }
   Serial.println("");
 
   Serial.print("Outputs: ");
-  for(int i=0; i<this->outputNumber; i++){
-    this->outputs[i]->print();
+  for(unsigned int i = 0; i< PhysicalOutput::getCount(); i++){
+    PhysicalOutput::getEntities()[i]->print();
+    Serial.print(" / ");
   }
+
+  Serial.println("");
+  
+  Serial.print("Leds: ");
+  for(unsigned int i = 0; i< Led::getCount(); i++){
+    Led::getEntities()[i]->print();
+    Serial.print(" / ");
+  }
+  
   Serial.println("");
 }
+
+
 
 #endif

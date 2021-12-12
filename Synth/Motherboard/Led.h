@@ -1,9 +1,10 @@
-#ifndef led_h
-#define led_h
+#ifndef Led_h
+#define Led_h
 
-#include "Output.h"
+#include "Registrar.h"
+#include "PhysicalOutput.h"
 
-class Led : public Output
+class Led : public PhysicalIO, public Registrar<Led>
 {
 
 public:
@@ -15,21 +16,31 @@ public:
     BlinkFast,
     BlinkOnce
   };
+  
+  Led(int index);
 
-  String getType() override;
+  void print() override;
 
-  void update(unsigned int updateMillis);
+  void update() override;
   void set(Status status, int brightness);
+  void setStatus(Status status);
+  void setTarget(float target) override;
+
+  String getClassName() override{return "Led";}
 
 private:
-  Status status;
+  Status status = Off;
 
   // The value target requested
-  unsigned int requestedTarget;
+  unsigned int requestedTarget = 0;
 
   // Time counter for the blinking
   elapsedMillis blinkTime;
 };
+
+inline Led::Led(int index):PhysicalIO{index, (String)"Led" + index}{
+//  IORegistrar::registerLed(this);
+}
 
 inline void Led::set(Status status, int brightness)
 {
@@ -49,9 +60,13 @@ inline void Led::set(Status status, int brightness)
   }
 }
 
-inline void Led::update(unsigned int updateMillis)
+inline void Led::setStatus(Status status){
+  this->status = status;
+}
+
+inline void Led::update()
 {
-  Output::update(updateMillis);
+  PhysicalIO::update();
 
   switch (this->status)
   {
@@ -90,8 +105,23 @@ inline void Led::update(unsigned int updateMillis)
   }
 }
 
-inline String Led::getType()
+inline void Led::setTarget(float target)
 {
-  return "Led";
+  PhysicalIO::setTarget(target);
+  
+  this->requestedTarget = this->target;
 }
+
+//inline void Led::onMidiCC(unsigned int value){
+//  IO::onMidiCC(value);
+//  
+//  this->requestedTarget = this->midiValue;
+//}
+
+inline void Led::print()
+{
+  Serial.printf("%07.2f", this->value);
+}
+
+#define Led MotherboardNamespace::Led
 #endif

@@ -2,11 +2,14 @@
 #define Motherboard_h
 
 #include <SPI.h>
+#include <map>
 #include <vector>
-#include "FastTouch.h"
+//#include "FastTouch.h"
 
 namespace MotherboardNamespace{
-  
+
+class Motherboard;
+
 #include "IOManager.h"
 #include "MidiManager.h"
 
@@ -24,38 +27,34 @@ private:
   IOManager* ioManager;
   MidiManager* midiManager;
 
-  bool debug;
+  bool debug = false;
   elapsedMillis clockDebug;
 
 public:
   static Motherboard *getInstance();
-  void init(String deviceName, int columnNumber, std::vector<Input *> inputs, std::vector<Output *> outputs);
+  void init(String deviceName, int columnNumber);
   void update();
 
-  void setOutput(byte index, unsigned int value);
-  void setLED(byte index, Led::Status status, unsigned int brightness = 4095);
-  void toggleLED(byte index);
-  void resetAllLED();
+//  void setLED(byte index, Led::Status status, unsigned int brightness = 4095);
+//  void toggleLED(byte index);
+//  void resetAllLED();
   void initSequence();
   float getInputValue(byte index);
+//  void setOutput(byte index, unsigned int value);
+//  void setSmoothing(byte smoothing);
   int getAnalogMaxValue();
   int getAnalogMinValue();
-  byte getMidiChannel();
+//  byte getMidiChannel();
 
-  // Callbacks
-  void setHandlePressDown(byte inputIndex, PressDownCallback fptr);
-  void setHandleLongPressDown(byte inputIndex, LongPressDownCallback fptr);
-  void setHandlePressUp(byte inputIndex, PressUpCallback fptr);
-  void setHandleLongPressUp(byte inputIndex, LongPressUpCallback fptr);
-  void setHandleChange(byte inputIndex, ChangeCallback fptr);
+//  MidiManager* getMidiManager();
 
   // MIDI Callbacks
-  void setHandleMidiNoteOn(MidiNoteOnCallback fptr);
-  void setHandleMidiNoteOff(MidiNoteOffCallback fptr);
-  // void setHandleGlobalMidiControlChange(GlobalMidiControlChangeCallback fptr);
-  void setHandleMidiControlChange(byte control, String controlName, MidiControlChangeCallbackFunction fptr);
-  void setHandleMidiControlChange(byte midiChannel, byte midiCC, String controlName, MidiControlChangeCallbackFunction fptr);
-  void setHandleMidiSysEx(MidiSysExCallback fptr);
+//  void setHandleMidiNoteOn(MidiNoteOnCallback fptr);
+//  void setHandleMidiNoteOff(MidiNoteOffCallback fptr);
+//  // void setHandleGlobalMidiControlChange(GlobalMidiControlChangeCallback fptr);
+//  void setHandleMidiControlChange(byte control, String controlName, MidiControlChangeCallbackFunction fptr);
+//  void setHandleMidiControlChange(byte midiChannel, byte midiCC, String controlName, MidiControlChangeCallbackFunction fptr);
+//  void setHandleMidiSysEx(MidiSysExCallback fptr);
 
   void setDebug(bool debug);
 };
@@ -83,11 +82,17 @@ inline Motherboard *Motherboard::getInstance()
 /**
  * Init
  */
-inline void Motherboard::init(String deviceName, int columnNumber, std::vector<Input *> inputs, std::vector<Output *> outputs)
+inline void Motherboard::init(String deviceName, int columnNumber)
 {
+  if (this->debug) {
+    Serial.println("IOManager init...");
+  }
   this->ioManager = IOManager::getInstance();
-  ioManager->init(columnNumber, inputs, outputs);
+  ioManager->init(columnNumber);
   
+  if (this->debug) {
+    Serial.println("MidiManager init...");
+  }
   this->midiManager = MidiManager::getInstance();
   midiManager->init();
   
@@ -95,6 +100,10 @@ inline void Motherboard::init(String deviceName, int columnNumber, std::vector<I
   //
   //  // Init sequence
   //  this->initSequence();
+
+  if (this->debug) {
+    Serial.println("Ready!");
+  }
 }
 
 /**
@@ -108,41 +117,49 @@ inline void Motherboard::update()
   // Debug
    if (this->debug && this->clockDebug >= 10) {
       ioManager->print();
-      midiManager->print();
+//      midiManager->print();
       Serial.println("");
      this->clockDebug = 0;
    }
 }
 
 
-inline void Motherboard::setOutput(byte index, unsigned int value)
-{
-  ioManager->setOutputValue(index, value);  
-}
+//inline void Motherboard::setOutput(byte index, unsigned int value)
+//{
+//  ioManager->setOutputValue(index, value);  
+//}
 
 /**
  * Set a led status
  */
-inline void Motherboard::setLED(byte index, Led::Status status, unsigned int brightness)
-{
-  ioManager->setLED(index, status, brightness);
-}
+//inline void Motherboard::setLED(byte index, Led::Status status, unsigned int brightness)
+//{
+//  ioManager->setLED(index, status, brightness);
+//}
 
 /**
  * Toggle one LED
  */
-inline void Motherboard::toggleLED(byte index)
-{
-  //   ioManager->toggleLed(index);
-}
+//inline void Motherboard::toggleLED(byte index)
+//{
+//  //   ioManager->toggleLed(index);
+//}
 
 /**
  * Reset all LEDs
  */
-inline void Motherboard::resetAllLED()
-{
-  //   ioManager->resetAllLED(index);
-}
+//inline void Motherboard::resetAllLED()
+//{
+//  //   ioManager->resetAllLED(index);
+//}
+
+/**
+ * Reset all LEDs
+ */
+//inline void Motherboard::setSmoothing(byte smoothing)
+//{
+//  ioManager->setSmoothing(smoothing);
+//}
 
 /**
  * Get input value
@@ -169,60 +186,10 @@ inline int Motherboard::getAnalogMaxValue()
     return ioManager->getAnalogMaxValue();
 }
 
-inline byte Motherboard::getMidiChannel()
-{
-  return ioManager->getMidiChannel();
-}
-
-/**
- * Set handle press down on a button
- * @param inputIndex The index of the input
- * @param fptr The callback function, void (*)(byte inputIndex)
- */
-inline void Motherboard::setHandlePressDown(byte inputIndex, PressDownCallback fptr)
-{
-  ioManager->setHandlePressDown(inputIndex, fptr);
-}
-
-/**
- * Set handle press up on a button
- * @param inputIndex The index of the input
- * @param fptr The callback function, void (*)(byte inputIndex)
- */
-inline void Motherboard::setHandlePressUp(byte inputIndex, PressUpCallback fptr)
-{
-  ioManager->setHandlePressUp(inputIndex, fptr);
-}
-
-/**
- * Set handle long press down on a button
- * @param inputIndex The index of the input
- * @param fptr The callback function, void (*)(byte inputIndex)
- */
-inline void Motherboard::setHandleLongPressDown(byte inputIndex, LongPressDownCallback fptr)
-{
-  ioManager->setHandleLongPressDown(inputIndex, fptr);
-}
-
-/**
- * Set handle long press up on a button
- * @param inputIndex The index of the input
- * @param fptr The callback function, void (*)(byte inputIndex)
- */
-inline void Motherboard::setHandleLongPressUp(byte inputIndex, LongPressUpCallback fptr)
-{
-  ioManager->setHandleLongPressUp(inputIndex, fptr);
-}
-
-/**
- * Set handle change
- * @param inputIndex The index of the input
- * @param fptr The callback function, void (*)(byte inputIndex, float value, int diffToPrevious)
- */
-inline void Motherboard::setHandleChange(byte inputIndex, ChangeCallback fptr)
-{
-  ioManager->setHandleChange(inputIndex, fptr);
-}
+//inline byte Motherboard::getMidiChannel()
+//{
+//  return ioManager->getMidiChannel();
+//}
 
 /**
  * LEDs init sequence
@@ -240,30 +207,33 @@ inline void Motherboard::setDebug(bool debug)
 /**
  * Set handle MIDI note on
  */
-inline void Motherboard::setHandleMidiNoteOn(MidiNoteOnCallback fptr){
-  midiManager->setHandleMidiNoteOn(fptr);
-}
-
-/**
- * Set handle MIDI note off
- */
-inline void Motherboard::setHandleMidiNoteOff(MidiNoteOffCallback fptr){
-  midiManager->setHandleMidiNoteOff(fptr);
-}
-
-
-inline void Motherboard::setHandleMidiControlChange(byte control, String controlName, MidiControlChangeCallbackFunction fptr){
-  midiManager->setHandleMidiControlChange(control, controlName, fptr);
-}
-
-inline void Motherboard::setHandleMidiControlChange(byte midiChannel, byte midiCC, String controlName, MidiControlChangeCallbackFunction fptr){
-  midiManager->setHandleMidiControlChange(midiChannel, midiCC, controlName, fptr);
-}
-
-inline void Motherboard::setHandleMidiSysEx(MidiSysExCallback fptr){
-  midiManager->setHandleMidiSysEx(fptr);
-}
-
+//inline void Motherboard::setHandleMidiNoteOn(MidiNoteOnCallback fptr){
+//  midiManager->setHandleMidiNoteOn(fptr);
+//}
+//
+///**
+// * Set handle MIDI note off
+// */
+//inline void Motherboard::setHandleMidiNoteOff(MidiNoteOffCallback fptr){
+//  midiManager->setHandleMidiNoteOff(fptr);
+//}
+//
+//
+//inline void Motherboard::setHandleMidiControlChange(byte control, String controlName, MidiControlChangeCallbackFunction fptr){
+//  midiManager->setHandleMidiControlChange(control, controlName, fptr);
+//}
+//
+//inline void Motherboard::setHandleMidiControlChange(byte midiChannel, byte midiCC, String controlName, MidiControlChangeCallbackFunction fptr){
+//  midiManager->setHandleMidiControlChange(midiChannel, midiCC, controlName, fptr);
+//}
+//
+//inline void Motherboard::setHandleMidiSysEx(MidiSysExCallback fptr){
+//  midiManager->setHandleMidiSysEx(fptr);
+//}
+//
+//inline MidiManager* Motherboard::getMidiManager(){
+//  return this->midiManager;
+//}
 
 
 }
