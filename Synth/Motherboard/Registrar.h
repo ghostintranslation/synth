@@ -28,11 +28,11 @@ class Registrar
       registerEntity((T*)this);
     }
     
-    static T** getEntities(){ //TODO: RENAME getAll()
+    static T** getAll(){ //TODO: RENAME getAll()
       return entities;
     }
 
-    static T* getEntity(unsigned int index){ // TODO: RENAME get(unsigned int index)
+    static T* get(unsigned int index){ // TODO: RENAME get(unsigned int index)
       return entities[index];
     }
     

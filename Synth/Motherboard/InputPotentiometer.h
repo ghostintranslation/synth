@@ -17,6 +17,9 @@ public:
 
 inline InputPotentiometer::InputPotentiometer(int index, String name):PhysicalInput{index, name}{
   this->midiMode = Multiply;
+  // TODO: confirm it's needed
+  this->min = 35;
+  this->max = 4086;
 }
 
 inline void InputPotentiometer::read()
@@ -26,11 +29,9 @@ inline void InputPotentiometer::read()
   
   unsigned int  val = 0.9*previousReading + 0.1*reading; // low pass filter
 
-  unsigned int newval = map(constrain(val, 35, 4086), 35, 4086, 0, 4095);
-
-  this->setTarget(newval);
+  this->setTarget(val);
     
-  this->previousReading = newval;
+  this->previousReading = this->getTarget();
 }
 
 // Prevents to have to write the namespace when using this class

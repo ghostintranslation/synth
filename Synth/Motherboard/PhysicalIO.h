@@ -25,6 +25,4 @@ inline unsigned int PhysicalIO::getIndex()
     return this->index;
 }
 
-//#define PhysicalIO MotherboardNamespace::PhysicalIO
-
 #endif

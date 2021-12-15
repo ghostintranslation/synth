@@ -31,26 +31,26 @@ private:
 
 inline float IOTypeTrigger::processValue(float value){
   float newVal = 0;
-  if(value > 4096/2){
-    newVal = 4095;
+  if(value > (ABSOLUTE_ANALOG_MAX+1)/2){
+    newVal = ABSOLUTE_ANALOG_MAX;
   }else{
-    newVal = 0;
+    newVal = ABSOLUTE_ANALOG_MIN;
   }
 
   return newVal;
 }
 
 inline float IOTypeTrigger::processTarget(float target){
- if(target > 4096/2 && !this->hasTriggered){
+ if(target > (ABSOLUTE_ANALOG_MAX+1)/2 && !this->hasTriggered){
     this->trigger();
-  }else if(target < 4095/2 && this->hasTriggered){
+  }else if(target < ABSOLUTE_ANALOG_MAX/2 && this->hasTriggered){
     this->hasTriggered = false;
   }
 
   if(this->hasTriggered && this->triggerClock < 50){
-    target = 4095;
+    target = ABSOLUTE_ANALOG_MAX;
   }else {
-    target = 0;
+    target = ABSOLUTE_ANALOG_MIN;
   }
   
   return target;

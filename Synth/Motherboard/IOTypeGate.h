@@ -22,10 +22,10 @@ public:
 
 inline float IOTypeGate::processValue(float value){
   float newVal = 0;
-  if(value < 4096/2){
-    newVal = 0;
+  if(value < (ABSOLUTE_ANALOG_MAX+1)/2){
+    newVal = ABSOLUTE_ANALOG_MIN;
   }else{
-    newVal = 4095;
+    newVal = ABSOLUTE_ANALOG_MAX;
   }
 
   return newVal;
@@ -33,10 +33,10 @@ inline float IOTypeGate::processValue(float value){
 
 inline float IOTypeGate::processTarget(float target){
   float newTarget = 0;
-  if(target < 4096/2){
-    newTarget = 0;
+  if(target < (ABSOLUTE_ANALOG_MAX+1)/2){
+    newTarget = ABSOLUTE_ANALOG_MIN;
   }else{
-    newTarget = 4095;
+    newTarget = ABSOLUTE_ANALOG_MAX;
   }
   
   return newTarget;
@@ -44,10 +44,10 @@ inline float IOTypeGate::processTarget(float target){
 
 inline unsigned int IOTypeGate::processMidiCC(unsigned int value){
   unsigned int newVal = 0;
-  if(value < 4096/2){
-    newVal = 0;
+  if(value < (ABSOLUTE_ANALOG_MAX+1)/2){
+    newVal = ABSOLUTE_ANALOG_MIN;
   }else{
-    newVal = 4095;
+    newVal = ABSOLUTE_ANALOG_MAX;
   }
   
   return newVal;

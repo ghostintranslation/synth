@@ -36,7 +36,6 @@ void setup() {
   
   while (!Serial && millis() < 2500); // wait for serial monitor
 
-//  Motherboard.setDebug(true);
   synth->init();
 
   // Audio connections require memory to work.

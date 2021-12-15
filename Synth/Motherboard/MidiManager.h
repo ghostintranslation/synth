@@ -217,26 +217,26 @@ inline void MidiManager::handleMidiControlChange(byte channel, byte control, byt
 
   // value from 0 to 127
 
-  unsigned int val = map(value, 0, 127, 0, 4095);
+  unsigned int val = map(value, 0, 127, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);
 
   // If the incoming message's channel corresponds to the board's channel 
   if(getInstance()->midiChannel == channel){
     
     for(unsigned int i = 0; i< PhysicalInput::getCount(); i++){
-      if(PhysicalInput::getEntities()[i]->getMidiCC() == control){
-        PhysicalInput::getEntities()[i]->onMidiCC(val);
+      if(PhysicalInput::getAll()[i]->getMidiCC() == control){
+        PhysicalInput::getAll()[i]->onMidiCC(val);
       }
     }
 
     for(unsigned int i = 0; i< PhysicalOutput::getCount(); i++){
-      if(PhysicalOutput::getEntities()[i]->getMidiCC() == control){
-        PhysicalOutput::getEntities()[i]->onMidiCC(val);
+      if(PhysicalOutput::getAll()[i]->getMidiCC() == control){
+        PhysicalOutput::getAll()[i]->onMidiCC(val);
       }
     }
 
     for(unsigned int i = 0; i< Led::getCount(); i++){
-      if(Led::getEntities()[i]->getMidiCC() == control){
-        Led::getEntities()[i]->onMidiCC(val);
+      if(Led::getAll()[i]->getMidiCC() == control){
+        Led::getAll()[i]->onMidiCC(val);
       }
     }
     
@@ -284,12 +284,12 @@ inline void MidiManager::handleMidiNote(byte channel, byte note, byte velocity, 
   // Calling any InputMidiNote on the same channel
   // or any input on channel 0 with incomming message'schannel matching the board's channel
   for(unsigned int i = 0; i< InputMidiNote::getCount(); i++){
-    if(InputMidiNote::getEntities()[i]->getChannel() == channel
-      || (InputMidiNote::getEntities()[i]->getChannel() == 0 && getInstance()->midiChannel == channel)){
+    if(InputMidiNote::getAll()[i]->getChannel() == channel
+      || (InputMidiNote::getAll()[i]->getChannel() == 0 && getInstance()->midiChannel == channel)){
       if(isNoteOn){
-        InputMidiNote::getEntities()[i]->onMidiNoteOn(note, velocity);
+        InputMidiNote::getAll()[i]->onMidiNoteOn(note, velocity);
       }else{
-        InputMidiNote::getEntities()[i]->onMidiNoteOff(note, velocity);
+        InputMidiNote::getAll()[i]->onMidiNoteOff(note, velocity);
       }
     }
   }

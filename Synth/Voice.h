@@ -5,7 +5,7 @@
 
 // Custom types
 enum synthesis {FM, FMx10, AM, AMx10, RING};
-enum modes {SYNTH, ARP, DRONE};
+//enum modes {SYNTH, ARP, DRONE};
 
 /*
 // GUItool: begin automatically generated code
@@ -46,12 +46,13 @@ class Voice{
     AudioMixer4 *output;
 
     synthesis synth;
-    modes mode;
+//    modes mode;
     bool notePlayed;
     float freq = 0;
     float frequencyTarget = 0;
+    byte octave = 0;
     byte currentNote = 0; // The midi note currently being played.
-    byte intervalGlide = 0;
+    byte intervalGlide = 255;
     byte updateMillis = 0;
 
   public:
@@ -66,9 +67,10 @@ class Voice{
     // Setters
     void setAR(unsigned int attack, unsigned int release);
     void setNotePlayed(bool notePlayed);
-    void setMode(byte mode);
+//    void setMode(byte mode);
     void setFrequency(float freq);
     void setFrequencyTarget(int freq);
+    void setOctave(byte octave);
     void setModulatorFrequency(int freq);
     void setModulatorAmplitude(float amp);
     void setShape(float shape);
@@ -100,8 +102,8 @@ inline Voice::Voice(){
   this->envelope = new AudioEffectEnvelope();
   this->envelope->sustain(1);
   this->output = new AudioMixer4();
-  this->output->gain(0, 0);
-  this->output->gain(1, 1);
+  this->output->gain(0, 1);
+  this->output->gain(1, 0);
 
   this->patchCords[0] = new AudioConnection(*this->sineModulator, 0, *this->sawtoothFM, 0);
   this->patchCords[1] = new AudioConnection(*this->sineModulator, 0, *this->sineFM, 0);
@@ -111,7 +113,7 @@ inline Voice::Voice(){
   this->patchCords[5] = new AudioConnection(*this->envelope, 0, *this->output, 0);
   this->patchCords[6] = new AudioConnection(*this->mixer, 0, *this->output, 1);
 
-  this->setMode(0);
+//  this->setMode(0);
   this->notePlayed = false;
 }
 
@@ -119,10 +121,10 @@ inline Voice::Voice(){
  * Update
  */
 inline void Voice::update(){
-  this->intervalGlide = 255;
+//  this->intervalGlide = 255;
   if(this->intervalGlide < 254){
       if(this->frequencyTarget != this->freq){
-        this->freq += ((float)this->intervalGlide * (this->frequencyTarget - this->freq) / (float)255)  / ((float)100 / (float)this->updateMillis);
+        this->freq += ((float)this->intervalGlide * (this->frequencyTarget - this->freq) / (float)255)  / ((float)10 / (float)this->updateMillis);
       }
 
       if(roundf(this->freq * 100) / 100 == 0){
@@ -157,7 +159,7 @@ inline void Voice::noteOn(byte midiNote) {
   this->currentNote = midiNote;
   this->last_played = millis();
   this->notePlayed=true;
-  this->frequencyTarget = 440.0 * powf(2.0, (float)(this->currentNote - 69) * 0.08333333);
+  this->frequencyTarget = 440.0 * powf(2.0, (float)(this->currentNote - 93 + 12*this->octave) * 0.08333333);
   this->envelope->noteOn();
 }
 
@@ -190,32 +192,32 @@ inline void Voice::setNotePlayed(bool notePlayed){
 /**
  * Set the mode
  */
-inline void Voice::setMode(byte modeValue){
-  // Set the synth
-  switch(modeValue){
-    case 0 : this->mode = SYNTH; break;
-    case 1 : this->mode = ARP;   break;
-    case 2 : this->mode = DRONE; break;
-  }
-
-  this->output->gain(0, 0);
-  this->output->gain(1, 0);
-  
-  // Set the values according to the mode
-  switch(this->mode){
-    case SYNTH:
-    case ARP:
-      this->output->gain(0, 1);
-      this->output->gain(1, 0);
-      this->intervalGlide = 0;
-    break;
-    case DRONE:
-      this->output->gain(0, 0);
-      this->output->gain(1, 1);
-      this->intervalGlide = 0;
-    break;
-  }
-}
+//inline void Voice::setMode(byte modeValue){
+//  // Set the synth
+//  switch(modeValue){
+//    case 0 : this->mode = SYNTH; break;
+//    case 1 : this->mode = ARP;   break;
+//    case 2 : this->mode = DRONE; break;
+//  }
+//
+//  this->output->gain(0, 0);
+//  this->output->gain(1, 0);
+//  
+//  // Set the values according to the mode
+//  switch(this->mode){
+//    case SYNTH:
+//    case ARP:
+//      this->output->gain(0, 1);
+//      this->output->gain(1, 0);
+//      this->intervalGlide = 0;
+//    break;
+//    case DRONE:
+//      this->output->gain(0, 0);
+//      this->output->gain(1, 1);
+//      this->intervalGlide = 0;
+//    break;
+//  }
+//}
 
 /**
  * Set the frequency
@@ -231,6 +233,13 @@ inline void Voice::setFrequency(float freq){
  */
 inline void Voice::setFrequencyTarget(int frequencyTarget){
   this->frequencyTarget = frequencyTarget;
+}
+
+/**
+ * Set the octave
+ */
+inline void Voice::setOctave(byte octave){
+  this->octave = octave;
 }
 
 /**

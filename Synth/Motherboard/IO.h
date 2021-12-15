@@ -7,11 +7,6 @@
 #include "IOTypeCV.h"
 #include "IOState.h"
 
-// Forward declarations
-//class PhysicalInput;
-//class PhysicalOutput;
-//class Led;
-
 enum MidiMode
 {
   Either,
@@ -73,8 +68,6 @@ public:
 
         // State
         void transitionTo(IOState* state);
-        
-    // Registrar
 
     // Debug
     virtual void print();
@@ -88,9 +81,9 @@ private:
 protected:      
         String name = "";
 
-        unsigned int min = 0;
+        unsigned int min = ABSOLUTE_ANALOG_MIN;
         
-        unsigned int max = 4095;
+        unsigned int max = ABSOLUTE_ANALOG_MAX;
         
         // The previous value
         float previousValue = 0;
@@ -171,12 +164,8 @@ inline float IO::getTarget()
 
 inline void IO::setTarget(float target)
 {
-//  if(this->calibrate){
-//    this->target = target;
-//    return;
-//  }
-  
   this->target = this->ioType->processTarget(target);
+  this->target = map(constrain(this->target, this->min, this->max), this->min, this->max, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);
   this->updateTarget();
 }
 
@@ -184,19 +173,15 @@ inline void IO::updateTarget(){
   if(this->midiControlNumber > -1){
     switch(this->midiMode){
       case Multiply:
-        this->target = this->target * map((float)this->midiValue,0,4095,0,1);
+        this->target = this->target * map((float)this->midiValue, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX,0,1);
       break;
 
       case Add:
-        this->target = constrain(this->target + this->midiValue,0,4095);
+        this->target = constrain(this->target + this->midiValue, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);
       break;
       
       case Either:
       default:
-//      Serial.println(this->target);
-//      Serial.println(this->midiValue);
-//      Serial.println("");
-//        this->target = max(this->target, this->midiValue);
       break;
     }
   }else{
@@ -236,13 +221,13 @@ inline void IO::onValueChange(){
     return;
   }
 
-  if((this->value > 4095 / 1.5) && !this->isGateOpen){
+  if((this->value > ABSOLUTE_ANALOG_MAX / 1.5) && !this->isGateOpen){
     if (this->gateOpenCallback != nullptr){
       this->gateOpenCallback(this->name);
     }
     this->isGateOpen = true;
     this->debounceTime = 0;
-  }else if((this->value < 4095 / 4) && this->isGateOpen){
+  }else if((this->value < ABSOLUTE_ANALOG_MAX / 4) && this->isGateOpen){
     if (this->gateCloseCallback != nullptr){
       this->gateCloseCallback(this->name);
     }

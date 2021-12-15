@@ -25,7 +25,7 @@ inline void IOStateDefault::update(){
 
   block = this->io->receiveStream();
   if (block){
-    streamValue = constrain(block->data[0], 0, 4095);
+    streamValue = constrain(block->data[0], ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);// TODO: add a map, what's the min and max values provided by the stream
     if(this->io->getPreviousStreamValue() != streamValue){
       this->io->setTarget(streamValue); // TODO: instead of using one value and dropping the 127 others, drop 1
       this->io->setPreviousStreamValue(streamValue);

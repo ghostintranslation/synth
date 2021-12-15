@@ -19,15 +19,15 @@ public:
 
 
 inline float IOTypeCV::processValue(float value){
-  return constrain(value, 0, 4095);
+  return value;
 }
 
 inline float IOTypeCV::processTarget(float target){
-  return constrain(target, 0, 4095);
+  return target;
 }
 
 inline unsigned int IOTypeCV::processMidiCC(unsigned int value){
-  return constrain(value, 0, 4095);
+  return value;
 }
 
 

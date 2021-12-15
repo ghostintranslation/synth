@@ -4,6 +4,7 @@
 #include "Registrar.h"
 #include "PhysicalIO.h"
 
+// TODO: SET THE NUMBER OF STREAM INPUTS to 0
 class PhysicalInput : public PhysicalIO, public Registrar<PhysicalInput>
 {
 public:
@@ -29,9 +30,9 @@ protected:
     // The pin on which the PhysicalInput can be read
     byte pin = 0;
 
-    unsigned int analogMaxValue = 4095;
-    
-    unsigned int analogMinValue = 0;
+//    unsigned int analogMaxValue = 4095;
+//    
+//    unsigned int analogMinValue = 0;
 
     unsigned int previousReading = 0;
 };
@@ -43,13 +44,13 @@ inline PhysicalInput::PhysicalInput(int index, String name):PhysicalIO{index, na
 }
 
 
-inline void PhysicalInput::setAnalogMinValue(unsigned int analogMinValue){
-  this->analogMinValue = analogMinValue;
-}
-    
-inline void PhysicalInput::setAnalogMaxValue(unsigned int analogMaxValue){
-  this->analogMaxValue = analogMaxValue;
-}
+//inline void PhysicalInput::setAnalogMinValue(unsigned int analogMinValue){
+//  this->analogMinValue = analogMinValue;
+//}
+//    
+//inline void PhysicalInput::setAnalogMaxValue(unsigned int analogMaxValue){
+//  this->analogMaxValue = analogMaxValue;
+//}
 
 //inline void PhysicalInput::onMidiControlChange(byte channel, byte controlNumber, byte value){
 //    int target = map(value, 0,127, 0, 4095);
