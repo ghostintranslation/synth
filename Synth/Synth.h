@@ -66,9 +66,6 @@ class Synth{
     static Synth *getInstance();
     void init();
     void update();
-    static void onChangeQuantized(byte inputIndex, int note);
-//    static void onGateOpen(byte inputIndex);
-//    static void onGateClose(byte inputIndex);
     static void onVelocityChange(byte inputIndex, float value, float diffToPrevious);
     static void noteOn(byte channel, byte note, byte velocity);
     static void noteOff(byte channel, byte note, byte velocity);
@@ -82,8 +79,9 @@ class Synth{
     static void onFmChange(byte inputIndex, float value, float diffToPrevious);
     static void onAttackChange(byte inputIndex, float value, float diffToPrevious);
     static void onReleaseChange(byte inputIndex, float value, float diffToPrevious);
-//    static void onTriggerUp(byte inputIndex);
-//    static void onTriggerDown(byte inputIndex);
+    static void onNoteChange(byte inputIndex, float value, float diffToPrevious);
+//    static void onGateOpen(byte inputIndex);
+//    static void onGateClose(byte inputIndex);
     
     // Midi callbacks
 //    static void onMidiModeChange(byte channel, byte control, byte value);
@@ -169,8 +167,8 @@ inline void Synth::init(){
   
   // Note
   this->inputNote = new InputJack(6, "Note");
-//  in7->setOnChangeQuantized(onChangeQuantized);
-  inputNote->setSmoothing(0);
+  this->inputNote->setOnChange(onNoteChange);
+  this->inputNote->setSmoothing(0);
 
   // Gate
   this->inputGate = new InputJack(7, "Gate");
@@ -189,43 +187,11 @@ inline void Synth::init(){
   
 //  Motherboard.setDebug(true);
   Motherboard.init("Synth", 2);
-
-  // Device callbacks
-//  Motherboard.setHandleChange(0, onModeChange);
-//  Motherboard.setHandleChange(1, onParamChange);
-//  Motherboard.setHandleChange(2, onShapeChange);
-//  Motherboard.setHandleChange(3, onFmChange);
-//  Motherboard.setHandleChange(4, onAttackChange);
-//  Motherboard.setHandleChange(5, onReleaseChange);
-//  Motherboard.setHandleChangeQuantized(6, onMidiModeChange);
-//  Motherboard.setHandleTriggerUp(6, onTriggerUp);
-//  Motherboard.setHandleTriggerDown(6, onTriggerDown);
-  
-//  Motherboard.setHandleMidiNoteOn(noteOn);
-//  Motherboard.setHandleMidiNoteOff(noteOff);
-//  this->device->setHandleMidiControlChange(0, 0, "Mode",    onMidiModeChange);
-//  this->device->setHandleMidiControlChange(0, 1, "Param",   onMidiParamChange);
-//  this->device->setHandleMidiControlChange(0, 2, "Shape",   onMidiShapeChange);
-//  this->device->setHandleMidiControlChange(0, 3, "FM",      onMidiFmChange);
-//  this->device->setHandleMidiControlChange(0, 4, "Attack",  onMidiAttackChange);
-//  this->device->setHandleMidiControlChange(0, 5, "Release", onMidiReleaseChange);
 }
 
-//inline void Synth::onTriggerUp(byte inputIndex){
-//  Serial.println("onTriggerUp");
-//}
-//
-//inline void Synth::onTriggerDown(byte inputIndex){
-//  Serial.println("onTriggerDown");
-//}
-
-
-inline void Synth::onChangeQuantized(byte inputIndex, int note){
-  Serial.print("onChangeQuantized ");
-  Serial.println(note);
-
-  getInstance()->cvNoteIndex = inputIndex;
-  getInstance()->voices[0]->noteOn(note);
+inline void Synth::onNoteChange(byte inputIndex, float value, float diffToPrevious){
+  // In mono, sets the note of the 1 voice
+  // In poly, triggers new notes when Gate is open, shut off notes when receiving an already playing note when Gate still open  
 }
 
 
@@ -233,16 +199,15 @@ inline void Synth::onVelocityChange(byte inputIndex, float value, float diffToPr
     float gainValue = map(value, 0, 4095, 0, 1);
     getInstance()->voices[0]->getOutput()->gain(1, gainValue);
 }
+
 //inline void Synth::onGateOpen(byte inputIndex){
-//  Serial.print("onGateOpen ");
-//  noteOn(0, getInstance()->cvNote, 127);
+// In mono, triggers the enveloppe of the 1 voice
+// In poly, does nothing
 //}
-//
+
 //inline void Synth::onGateClose(byte inputIndex){
-//  Serial.print("onGateClose ");
-//  Serial.println(inputIndex);
-//  
-//  noteOff(0, getInstance()->cvNote, 127);
+// In mono, close the enveloppe of the 1 voice
+// In poly, close the enveloppe of all voices
 //}
 
 /**
@@ -263,7 +228,8 @@ inline void Synth::noteOn(byte channel, byte note, byte velocity){
           // or else the oldest voice
           
           // Search for the oldest voice
-          if(getInstance()->voices[i]->last_played > oldestVoiceTime){
+          // TODO: should probably be < because last_played = millis() which means this number is bigger for newer notes
+          if(getInstance()->voices[i]->last_played > oldestVoiceTime){ 
             oldestVoiceTime = getInstance()->voices[i]->last_played;
             oldestVoice = i;
           }
@@ -529,40 +495,46 @@ inline void Synth::onShapeChange(byte inputIndex, float value, float diffToPrevi
  * On FM Change
  */
 inline void Synth::onFmChange(byte inputIndex, float value, float diffToPrevious){
-  int modulatorFrequency = 0;
-  float modulatorAmplitude = 0;
+  float level = map(value, 0, 4095, 0, 1);
+  getInstance()->output->gain(0, level );
+  getInstance()->output->gain(1, level );
+  getInstance()->output->gain(2, level );
+  getInstance()->output->gain(3, level );
 
-  if(value < 4095 / 3){
-    modulatorFrequency = map(value, 0, 4095 / 2, 0, 10);
-    modulatorAmplitude = (float)map(value, 0, 4095 / 2, 0.001, .01);
-  }
-  else if(value >= 4095 / 3 && value < 4095 / 2){
-    modulatorFrequency = map(value, 0, 4095 / 2, 0, 40);
-    modulatorAmplitude = (float)map(value, 0, 4095 / 2, 0.001, .01);
-  }else{
-    modulatorFrequency = map(value, 4095 / 2, 4095, 0, 1000);
-    modulatorAmplitude = (float)map(value, 4095 / 2, 4095, 0, .5);
-  }
-  
-  if(getInstance()->modulatorFrequency != modulatorFrequency){
-    getInstance()->modulatorFrequency = modulatorFrequency;
-    for (int i = 0; i < voiceCount ; i++) {
-      getInstance()->voices[i]->setModulatorFrequency(modulatorFrequency);
-    }
-  }
-  
-  if(value > 50){
-    if(getInstance()->modulatorAmplitude != modulatorAmplitude){
-      getInstance()->modulatorAmplitude = modulatorAmplitude;
-      for (int i = 0; i < voiceCount ; i++) {
-        getInstance()->voices[i]->setModulatorAmplitude(modulatorAmplitude);
-      }
-    }
-  }else{
-    for (int i = 0; i < voiceCount ; i++) {
-      getInstance()->voices[i]->setModulatorAmplitude(0);
-    }
-  }
+//  int modulatorFrequency = 0;
+//  float modulatorAmplitude = 0;
+//
+//  if(value < 4095 / 3){
+//    modulatorFrequency = map(value, 0, 4095 / 2, 0, 10);
+//    modulatorAmplitude = (float)map(value, 0, 4095 / 2, 0.001, .01);
+//  }
+//  else if(value >= 4095 / 3 && value < 4095 / 2){
+//    modulatorFrequency = map(value, 0, 4095 / 2, 0, 40);
+//    modulatorAmplitude = (float)map(value, 0, 4095 / 2, 0.001, .01);
+//  }else{
+//    modulatorFrequency = map(value, 4095 / 2, 4095, 0, 1000);
+//    modulatorAmplitude = (float)map(value, 4095 / 2, 4095, 0, .5);
+//  }
+//  
+//  if(getInstance()->modulatorFrequency != modulatorFrequency){
+//    getInstance()->modulatorFrequency = modulatorFrequency;
+//    for (int i = 0; i < voiceCount ; i++) {
+//      getInstance()->voices[i]->setModulatorFrequency(modulatorFrequency);
+//    }
+//  }
+//  
+//  if(value > 50){
+//    if(getInstance()->modulatorAmplitude != modulatorAmplitude){
+//      getInstance()->modulatorAmplitude = modulatorAmplitude;
+//      for (int i = 0; i < voiceCount ; i++) {
+//        getInstance()->voices[i]->setModulatorAmplitude(modulatorAmplitude);
+//      }
+//    }
+//  }else{
+//    for (int i = 0; i < voiceCount ; i++) {
+//      getInstance()->voices[i]->setModulatorAmplitude(0);
+//    }
+//  }
 }
 
 /**
