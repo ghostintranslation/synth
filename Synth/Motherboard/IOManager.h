@@ -15,6 +15,8 @@
 #define ABSOLUTE_ANALOG_MIN 0
 #define ABSOLUTE_ANALOG_MAX 4095
 
+// Forward declaration
+class IO;
 
 // Callback types
 //using TriggerDownCallback = void (*)(byte);
@@ -22,11 +24,13 @@
 //using TriggerUpCallback = void (*)(byte);
 //using LongTriggerUpCallback = void (*)(byte);
 using EdgeCallback = void (*)(String);
-using ChangeCallback = void (*)(String name, float value, float diff);
+using ChangeCallback = void (*)(IO* io);
 using ChangeQuantizedCallback = void (*)(byte inputIndex, int value);
 
+//#include "IO.h";
 #include "InputPotentiometer.h"
 #include "InputJack.h"
+#include "InputTouchpad.h"
 #include "InputMidiNote.h"
 #include "OutputJack.h"
 #include "Led.h"
@@ -59,7 +63,7 @@ private:
 
     // Inputs/Outputs
     byte maxIoNumber = 0;
-    byte currentInputIndex = 0;
+    byte currentInputIndex = 1;
     byte currentOutputIndex = 0;
     byte dipswitchValue = 0;
     void iterateIO();
@@ -75,17 +79,28 @@ private:
     // Refresh clock
     const unsigned int intervalReadWrite = 4;
     elapsedMicros clockReadWrite;
-    const unsigned int intervalIteration = 20000;
+    const unsigned int intervalIteration = 8000;
     elapsedMicros clockIteration;
+
+    // Clock to delay the readings after iterating
+    elapsedMicros registerLatchClock;
+    bool registerLatch;
 
     // PWM clock
     const float intervalPWM = 20000;
     elapsedMicros clockPWM;
+
+
+    int previousShiftRegistersData = 0;
+    int ledsData = 0;
+    int previousDacData = 0;
 };
 
 // Instance pre init
 IOManager *IOManager::instance = nullptr;
 
+
+//bool qqq = false;
 
 /**
  * Constructor
@@ -209,7 +224,6 @@ inline void IOManager::update()
  */
 inline void IOManager::iterateIO()
 {  
-//  if(IORegistrar::inputsSize > 0){
   if(PhysicalInput::getCount() > 0){
     do{
       // Iterate to the next or Iterate back to the first one
@@ -221,7 +235,6 @@ inline void IOManager::iterateIO()
     }while(PhysicalInput::getAll()[this->currentInputIndex]->getIndex() > this->maxIoNumber);
   }
 
-//  if(IORegistrar::outputsSize > 0){
   if(PhysicalOutput::getCount() > 0){
     do{
       // Iterate to the next or Iterate back to the first one
@@ -251,17 +264,14 @@ inline void IOManager::readWriteIO()
    * - Send the leds byte to complete the shift registers chain
    * - Set the latch to high  (shift registers actually set their pins and stop listening)
    */
-   
-    unsigned int currentInputPosition = PhysicalInput::getCount() > this->currentInputIndex ? PhysicalInput::getAll()[this->currentInputIndex]->getIndex() : 0;
     
+    unsigned int currentInputPosition = PhysicalInput::getCount() > this->currentInputIndex ? PhysicalInput::getAll()[this->currentInputIndex]->getIndex() : 0;
+
     unsigned int currentOutputPosition = PhysicalOutput::getCount() > this->currentOutputIndex ? PhysicalOutput::getAll()[this->currentOutputIndex]->getIndex() : 0;
 
     byte currentOutputDacIndex = currentOutputPosition / 2;
     byte currentOutputDacChannel = currentOutputPosition % 2;
-
-    // Set the latch to low (activate the shift registers)
-    digitalWrite(REGISTERS_LATCH_PIN, LOW);
-
+  
     // Preparing the shift register data
     unsigned long shiftRegistersData =  0x00;
     if (PhysicalInput::getCount() > this->currentInputIndex && PhysicalInput::getAll()[this->currentInputIndex]->isDirectToTeensy())
@@ -290,49 +300,64 @@ inline void IOManager::readWriteIO()
         }
       }
     }
-    
-    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-    // Send the byte to set the MUX and select the DAC
-    SPI.transfer(shiftRegistersData);
-    // Send the leds byte to complete the shift registers chain
-    SPI.transfer(ledsData);
-    SPI.endTransaction();
 
-    // Set the latch to high (shift registers actually set their pins and stop listening)
-    digitalWrite(REGISTERS_LATCH_PIN, HIGH);
-
-    // Send the selected DAC data
+    // Preparing the DACs data
+    int dacData = 0;
     if(PhysicalOutput::getCount() > 0){
       if (currentOutputDacChannel == 0)
       {
           // Channel A
-          SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-          SPI.transfer16(0x1000 | constrain((int)PhysicalOutput::getAll()[this->currentOutputIndex]->getValue(), ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX)); // TODO: do we need the constrain here? not done earlier already?
-          SPI.endTransaction();
+          dacData = 0x1000 | (int)PhysicalOutput::getAll()[this->currentOutputIndex]->getValue();
       }
       else
       {
           // Channel B
-          SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-          SPI.transfer16(0x9000 | (int)PhysicalOutput::getAll()[this->currentOutputIndex]->getValue());
-          SPI.endTransaction();
+          dacData = 0x9000 | (int)PhysicalOutput::getAll()[this->currentOutputIndex]->getValue();
       }
     }
 
-    // Set the latch to low (now shift registers are listening)
-    digitalWrite(REGISTERS_LATCH_PIN, LOW);
+    // Reduce SPI use by not pushing data if not necessary
+    if(this->previousShiftRegistersData != shiftRegistersData
+    || this->ledsData != ledsData
+    || this->previousDacData != previousDacData){
+  
+      // Set the latch to low (activate the shift registers)
+      digitalWrite(REGISTERS_LATCH_PIN, LOW);
+        
+      SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
+      // Send the byte to set the MUX and select the DAC
+      SPI.transfer(shiftRegistersData);
+      // Send the leds byte to complete the shift registers chain
+      SPI.transfer(ledsData);
+      SPI.endTransaction();
+      
+      // Set the latch to high (shift registers actually set their pins and stop listening)
+      digitalWrite(REGISTERS_LATCH_PIN, HIGH);
+  
+      // Send the selected DAC data
+      SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
+      SPI.transfer16(dacData);
+      SPI.endTransaction();
+    
+      // Set the latch to low (now shift registers are listening)
+      digitalWrite(REGISTERS_LATCH_PIN, LOW);
+  
+      // Send the same data to the shift registers except the DAC selection bit goes to high (the DAC will actually set its pin)
+      SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
+      SPI.transfer(shiftRegistersData ^ 0x01 << currentOutputDacIndex);
+      SPI.transfer(ledsData);
+      SPI.endTransaction();
+  
+      // Set the latch to high  (shift registers actually set their pins and stop listening)
+      digitalWrite(REGISTERS_LATCH_PIN, HIGH);
 
-    // Send the same data to the shift registers except the DAC selection bit goes to high (the DAC will actually set its pin)
-    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-    SPI.transfer(shiftRegistersData ^ 0x01 << currentOutputDacIndex);
-    SPI.transfer(ledsData);
-    SPI.endTransaction();
-
-    // Set the latch to high  (shift registers actually set their pins and stop listening)
-    digitalWrite(REGISTERS_LATCH_PIN, HIGH);
-
+      this->previousShiftRegistersData = shiftRegistersData;
+      this->ledsData = ledsData;
+      this->previousDacData = dacData;
+    }
+    
     // Read the current input
-    if(PhysicalInput::getCount() > this->currentInputIndex){
+    if(PhysicalInput::getCount() > this->currentInputIndex ){
       PhysicalInput::getAll()[this->currentInputIndex]->read();
     }
 
@@ -364,7 +389,7 @@ inline byte IOManager::getDipswitchValue()
 inline void IOManager::calibrate(){
   Serial.println("IOManager::calibrate()");
   for(unsigned int i = 0; i<PhysicalInput::getCount(); i++){
-    if(PhysicalInput::getAll()[i]->getClassName() == "InputPotentiometer"){
+    if(PhysicalInput::getAll()[i]->getClassName() == "InputPotentiometer"){ // TODO: InputTouchpad
       
       if(PhysicalInput::getAll()[i]->getTarget() > PhysicalInput::getAll()[i]->getMin()){
         PhysicalInput::getAll()[i]->setMin(PhysicalInput::getAll()[i]->getTarget());

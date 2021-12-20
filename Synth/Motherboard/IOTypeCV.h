@@ -10,19 +10,21 @@ class IOTypeCV : public IOType
 {
 
 public:
-    virtual float processTarget(float target) override;
+    virtual float processTarget(float target, float min, float max) override;
     
-    virtual float processValue(float value) override;
+    virtual float processValue(float value, float min, float max) override;
     
     virtual unsigned int processMidiCC(unsigned int value) override;
 };
 
 
-inline float IOTypeCV::processValue(float value){
+inline float IOTypeCV::processValue(float value, float min, float max){
   return value;
 }
 
-inline float IOTypeCV::processTarget(float target){
+inline float IOTypeCV::processTarget(float target, float min, float max){
+  target = constrain(target, min, max);
+  target = map(target, min, max, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);
   return target;
 }
 

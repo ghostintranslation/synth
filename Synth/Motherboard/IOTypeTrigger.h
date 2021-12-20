@@ -11,9 +11,9 @@ class IOTypeTrigger : public IOType
 {
 
 public:
-    virtual float processTarget(float target) override;
+    virtual float processTarget(float target, float min, float max) override;
     
-    virtual float processValue(float value) override;
+    virtual float processValue(float value, float min, float max) override;
     
     virtual unsigned int processMidiCC(unsigned int value) override;
     
@@ -29,7 +29,7 @@ private:
 };
 
 
-inline float IOTypeTrigger::processValue(float value){
+inline float IOTypeTrigger::processValue(float value, float min, float max){
   float newVal = 0;
   if(value > (ABSOLUTE_ANALOG_MAX+1)/2){
     newVal = ABSOLUTE_ANALOG_MAX;
@@ -40,7 +40,7 @@ inline float IOTypeTrigger::processValue(float value){
   return newVal;
 }
 
-inline float IOTypeTrigger::processTarget(float target){
+inline float IOTypeTrigger::processTarget(float target, float min, float max){
  if(target > (ABSOLUTE_ANALOG_MAX+1)/2 && !this->hasTriggered){
     this->trigger();
   }else if(target < ABSOLUTE_ANALOG_MAX/2 && this->hasTriggered){
@@ -57,7 +57,7 @@ inline float IOTypeTrigger::processTarget(float target){
 }
 
 inline unsigned int IOTypeTrigger::processMidiCC(unsigned int value){
-  return this->processTarget(value);
+  return this->processTarget(value, 0, 0);
 }
 
 //inline float IOTypeTrigger::processTargetBeforeValueUpdate(float target){

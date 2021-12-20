@@ -10,9 +10,9 @@ class IO; // Forward declaration
 class IOType
 {
 public:
-    virtual float processTarget(float target){return target;};
+    virtual float processTarget(float target, float min, float max){return target;};
     
-    virtual float processValue(float value){return value;};
+    virtual float processValue(float value, float min, float max){return value;};
     
     virtual unsigned int processMidiCC(unsigned int value){return value;};
     

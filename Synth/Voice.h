@@ -102,8 +102,8 @@ inline Voice::Voice(){
   this->envelope = new AudioEffectEnvelope();
   this->envelope->sustain(1);
   this->output = new AudioMixer4();
-  this->output->gain(0, 1);
-  this->output->gain(1, 0);
+  this->output->gain(0, 0);
+  this->output->gain(1, 1);
 
   this->patchCords[0] = new AudioConnection(*this->sineModulator, 0, *this->sawtoothFM, 0);
   this->patchCords[1] = new AudioConnection(*this->sineModulator, 0, *this->sineFM, 0);

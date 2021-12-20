@@ -6,7 +6,7 @@
 #include <vector>
 //#include "FastTouch.h"
 
-namespace MotherboardNamespace{
+//namespace MotherboardNamespace{
 
 class Motherboard;
 
@@ -115,8 +115,8 @@ inline void Motherboard::setDebug(bool debug)
 }
 
 
-}
+//}
 // Instanciating
-MotherboardNamespace::Motherboard &Motherboard = *MotherboardNamespace::Motherboard::getInstance();
-
+//MotherboardNamespace::Motherboard &Motherboard = *MotherboardNamespace::Motherboard::getInstance();
+Motherboard &Motherboard = *Motherboard::getInstance();
 #endif

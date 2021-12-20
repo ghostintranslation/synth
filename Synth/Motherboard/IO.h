@@ -5,6 +5,7 @@
 #include "IOTypeGate.h"
 #include "IOTypeTrigger.h"
 #include "IOTypeCV.h"
+#include "IOTypeQuantized.h"
 #include "IOState.h"
 
 enum MidiMode
@@ -27,6 +28,8 @@ class IO : public AudioStream
 public:
         IO(String name);
         virtual void update(void);
+//        bool isReadyToRead();
+//        void resetDelayReading();
         unsigned int getMin();
         unsigned int getMax();
         void setMin(unsigned int min);
@@ -84,7 +87,7 @@ protected:
         unsigned int min = ABSOLUTE_ANALOG_MIN;
         
         unsigned int max = ABSOLUTE_ANALOG_MAX;
-        
+
         // The previous value
         float previousValue = 0;
 
@@ -154,7 +157,7 @@ inline float IO::getValue()
 }
 
 inline void IO::setValue(float value){
-  this->value = this->ioType->processValue(value);
+  this->value = this->ioType->processValue(value, this->min, this->max);
 }
 
 inline float IO::getTarget()
@@ -164,8 +167,7 @@ inline float IO::getTarget()
 
 inline void IO::setTarget(float target)
 {
-  this->target = this->ioType->processTarget(target);
-  this->target = map(constrain(this->target, this->min, this->max), this->min, this->max, ABSOLUTE_ANALOG_MIN, ABSOLUTE_ANALOG_MAX);
+  this->target = this->ioType->processTarget(target, this->min, this->max);
   this->updateTarget();
 }
 
@@ -194,6 +196,8 @@ inline void IO::setType(String type){
     this->ioType = new IOTypeGate();
   }else if(type == "Trigger"){
     this->ioType = new IOTypeTrigger();
+  }else if(type == "Quantized"){
+    this->ioType = new IOTypeQuantized();
   }else{
     this->ioType = new IOTypeCV();
   }
@@ -213,7 +217,7 @@ inline void IO::update()
 inline void IO::onValueChange(){
   if (this->changeCallback != nullptr)
   {
-    this->changeCallback(this->name, this->value, this->value - this->previousValue);
+    this->changeCallback(this);
   }
 
   // Debouncing
@@ -280,7 +284,7 @@ inline void IO::onMidiCC(unsigned int value){
 
 inline void IO::transitionTo(IOState* state){
   if (this->state != nullptr){
-      delete this->state;
+//      delete this->state;
   }
   this->state = state;
   this->state->setIO(this);
@@ -369,6 +373,6 @@ inline void IO::print()
 #include "IOStateDefault.h"
 #include "IOStateCalibrate.h"
 
-#define MidiMode MotherboardNamespace::MidiMode
+//#define MidiMode MotherboardNamespace::MidiMode
 
 #endif

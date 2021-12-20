@@ -89,6 +89,6 @@ inline void InputMidiNote::update()
   }
 }
  
-#define InputMidiNote MotherboardNamespace::InputMidiNote
+//#define InputMidiNote MotherboardNamespace::InputMidiNote
 
 #endif

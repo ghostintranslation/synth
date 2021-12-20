@@ -10,9 +10,9 @@ class IOTypeGate : public IOType
 {
 
 public:
-    virtual float processTarget(float target) override;
+    virtual float processTarget(float target, float min, float max) override;
     
-    virtual float processValue(float value) override;
+    virtual float processValue(float value, float min, float max) override;
     
     virtual unsigned int processMidiCC(unsigned int value) override;
     
@@ -20,7 +20,7 @@ public:
 };
 
 
-inline float IOTypeGate::processValue(float value){
+inline float IOTypeGate::processValue(float value, float min, float max){
   float newVal = 0;
   if(value < (ABSOLUTE_ANALOG_MAX+1)/2){
     newVal = ABSOLUTE_ANALOG_MIN;
@@ -31,7 +31,7 @@ inline float IOTypeGate::processValue(float value){
   return newVal;
 }
 
-inline float IOTypeGate::processTarget(float target){
+inline float IOTypeGate::processTarget(float target, float min, float max){
   float newTarget = 0;
   if(target < (ABSOLUTE_ANALOG_MAX+1)/2){
     newTarget = ABSOLUTE_ANALOG_MIN;

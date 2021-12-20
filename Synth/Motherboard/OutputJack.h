@@ -7,13 +7,13 @@ class OutputJack : public PhysicalOutput
 {
 
 public:
-  OutputJack(int index, String name);
+  OutputJack(unsigned int index, String name);
   
   String getClassName() override {return "OutputJack";}
 };
 
-inline OutputJack::OutputJack(int index, String name):PhysicalOutput{index, name}{
+inline OutputJack::OutputJack(unsigned int index, String name):PhysicalOutput{index, name}{
 }
 
-#define OutputJack MotherboardNamespace::OutputJack
+//#define OutputJack MotherboardNamespace::OutputJack
 #endif

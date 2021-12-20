@@ -8,7 +8,7 @@
 class PhysicalInput : public PhysicalIO, public Registrar<PhysicalInput>
 {
 public:
-    PhysicalInput(int index, String name);
+    PhysicalInput(unsigned int index, String name);
     
     // Depending on the type of PhysicalInput, the way to read it will difer
     virtual void read() = 0;
@@ -37,7 +37,7 @@ protected:
     unsigned int previousReading = 0;
 };
 
-inline PhysicalInput::PhysicalInput(int index, String name):PhysicalIO{index, name}
+inline PhysicalInput::PhysicalInput(unsigned int index, String name):PhysicalIO{index, name}
 {
   this->pin = ANALOG_IN_1_PIN; // TODO: DO IT ACCORDING TO INDEX
 //  IORegistrar::registerInput(this);

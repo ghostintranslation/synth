@@ -66,20 +66,20 @@ class Synth{
     static Synth *getInstance();
     void init();
     void update();
-    static void onVelocityChange(byte inputIndex, float value, float diffToPrevious);
+    static void onVelocityChange(IO* io);
     static void noteOn(byte channel, byte note, byte velocity);
     static void noteOff(byte channel, byte note, byte velocity);
     static void stop();
     AudioMixer4 * getOutput();
     
     // Callbacks
-    static void onModeChange(byte inputIndex, float value, float diffToPrevious);
-    static void onParamChange(byte inputIndex, float value, float diffToPrevious);
-    static void onShapeChange(byte inputIndex, float value, float diffToPrevious);
-    static void onFmChange(byte inputIndex, float value, float diffToPrevious);
-    static void onAttackChange(byte inputIndex, float value, float diffToPrevious);
-    static void onReleaseChange(byte inputIndex, float value, float diffToPrevious);
-    static void onNoteChange(byte inputIndex, float value, float diffToPrevious);
+    static void onModeChange(IO* io);
+    static void onParamChange(IO* io);
+    static void onShapeChange(IO* io);
+    static void onFmChange(IO* io);
+    static void onAttackChange(IO* io);
+    static void onReleaseChange(IO* io);
+    static void onNoteChange(IO* io);
 //    static void onGateOpen(byte inputIndex);
 //    static void onGateClose(byte inputIndex);
     
@@ -167,11 +167,13 @@ inline void Synth::init(){
   
   // Note
   this->inputNote = new InputJack(6, "Note");
+  this->inputNote->setType("Quantized");
   this->inputNote->setOnChange(onNoteChange);
-  this->inputNote->setSmoothing(0);
+//  this->inputNote->setSmoothing(1);
 
   // Gate
   this->inputGate = new InputJack(7, "Gate");
+//  this->inputGate->setSmoothing(1);
   this->inputGate->setType("Gate");
 ////  in8->setOnGateOpen(onGateOpen);
 ////  in8->setOnGateClose(onGateClose);
@@ -185,18 +187,19 @@ inline void Synth::init(){
   inputMidiNote->setHandleMidiNoteOn(noteOn);
   inputMidiNote->setHandleMidiNoteOff(noteOff);
   
-//  Motherboard.setDebug(true);
+  Motherboard.setDebug(true);
   Motherboard.init("Synth", 2);
 }
 
-inline void Synth::onNoteChange(byte inputIndex, float value, float diffToPrevious){
+inline void Synth::onNoteChange(IO* io){
   // In mono, sets the note of the 1 voice
   // In poly, triggers new notes when Gate is open, shut off notes when receiving an already playing note when Gate still open  
+//  Serial.println(((int)((io->getValue()/4096) * (4096/5/12) * 100)) / 100);
 }
 
 
-inline void Synth::onVelocityChange(byte inputIndex, float value, float diffToPrevious){  
-    float gainValue = map(value, 0, 4095, 0, 1);
+inline void Synth::onVelocityChange(IO* io){
+    float gainValue = map(io->getValue(), 0, 4095, 0, 1);
     getInstance()->voices[0]->getOutput()->gain(1, gainValue);
 }
 
@@ -403,8 +406,8 @@ inline void Synth::update(){
 /**
  * On Mode Change
  */
-inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevious){
-  float monoPoly = map(value, 0, 4096, 0, 2);
+inline void Synth::onModeChange(IO* io){
+  float monoPoly = map(io->getValue(), 0, 4096, 0, 2);
   
   // Mono and Poly modes
   if(monoPoly >= 1){
@@ -414,7 +417,7 @@ inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevio
   }
   
   // Portamento
-  getInstance()->portamento = ((unsigned int)constrain(map(value, 0, 4095, 511, 0), 0, 511)) % 256;
+  getInstance()->portamento = ((unsigned int)constrain(map(io->getValue(), 0, 4095, 511, 0), 0, 511)) % 256;
 
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setGlide(getInstance()->portamento);
@@ -440,9 +443,9 @@ inline void Synth::onModeChange(byte inputIndex, float value, float diffToPrevio
 /**
  * On Param Change
  */
-inline void Synth::onParamChange(byte inputIndex, float value, float diffToPrevious){  
-  getInstance()->octave = map(value, 0, 4095, 0, 8);
-Serial.println(getInstance()->octave);
+inline void Synth::onParamChange(IO* io){  
+  getInstance()->octave = map(io->getValue(), 0, 4095, 0, 8);
+
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setOctave(getInstance()->octave);
   }
@@ -466,9 +469,9 @@ Serial.println(getInstance()->octave);
 /**
  * On Shape Change
  */
-inline void Synth::onShapeChange(byte inputIndex, float value, float diffToPrevious){
+inline void Synth::onShapeChange(IO* io){
   // Shape
-  float shape = (float)map((float)value, 0, 4095, 0, 1);
+  float shape = (float)map((float)io->getValue(), 0, 4095, 0, 1);
     
   for (int i = 0; i < voiceCount ; i++) {
     getInstance()->voices[i]->setShape(shape);
@@ -494,12 +497,12 @@ inline void Synth::onShapeChange(byte inputIndex, float value, float diffToPrevi
 /**
  * On FM Change
  */
-inline void Synth::onFmChange(byte inputIndex, float value, float diffToPrevious){
-  float level = map(value, 0, 4095, 0, 1);
-  getInstance()->output->gain(0, level );
-  getInstance()->output->gain(1, level );
-  getInstance()->output->gain(2, level );
-  getInstance()->output->gain(3, level );
+inline void Synth::onFmChange(IO* io){
+//  float level = map(io->getValue(), 0, 4095, 0, 1);
+//  getInstance()->output->gain(0, level );
+//  getInstance()->output->gain(1, level );
+//  getInstance()->output->gain(2, level );
+//  getInstance()->output->gain(3, level );
 
 //  int modulatorFrequency = 0;
 //  float modulatorAmplitude = 0;
@@ -555,8 +558,8 @@ inline void Synth::onFmChange(byte inputIndex, float value, float diffToPrevious
 /**
  * On Attack Change
  */
-inline void Synth::onAttackChange(byte inputIndex, float value, float diffToPrevious){
-  unsigned int attack = map(value, 0, 4095, 0, 2000);
+inline void Synth::onAttackChange(IO* io){
+  unsigned int attack = map(io->getValue(), 0, 4095, 0, 2000);
  
   getInstance()->attack = attack;
   
@@ -583,8 +586,8 @@ inline void Synth::onAttackChange(byte inputIndex, float value, float diffToPrev
 /**
  * On Release Change
  */
-inline void Synth::onReleaseChange(byte inputIndex, float value, float diffToPrevious){
-  unsigned int release = map(value, 0, 4095, 0, 2000);
+inline void Synth::onReleaseChange(IO* io){
+  unsigned int release = map(io->getValue(), 0, 4095, 0, 2000);
 
   getInstance()->release = release;
   

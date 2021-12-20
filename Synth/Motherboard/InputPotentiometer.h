@@ -6,7 +6,7 @@
 class InputPotentiometer : public PhysicalInput
 {
 public:
-  InputPotentiometer(int index, String name);
+  InputPotentiometer(unsigned int index, String name);
   
   bool isDirectToTeensy() {return false;}
     
@@ -15,26 +15,24 @@ public:
   String getClassName() override {return "InputPotentiometer";}
 };
 
-inline InputPotentiometer::InputPotentiometer(int index, String name):PhysicalInput{index, name}{
+inline InputPotentiometer::InputPotentiometer(unsigned int index, String name):PhysicalInput{index, name}{
   this->midiMode = Multiply;
-  // TODO: confirm it's needed
-  this->min = 35;
-  this->max = 4086;
+  this->min = 23;
 }
 
 inline void InputPotentiometer::read()
 {
-  pinMode(this->pin, INPUT);
+  pinMode(this->pin, INPUT_PULLDOWN);
   unsigned int reading = analogRead(this->pin);
   
   unsigned int  val = 0.9*previousReading + 0.1*reading; // low pass filter
 
   this->setTarget(val);
     
-  this->previousReading = this->getTarget();
+  this->previousReading = reading;
 }
 
 // Prevents to have to write the namespace when using this class
-#define InputPotentiometer MotherboardNamespace::InputPotentiometer
+//#define InputPotentiometer MotherboardNamespace::InputPotentiometer
 
 #endif

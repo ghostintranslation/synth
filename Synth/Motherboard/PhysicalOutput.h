@@ -9,12 +9,12 @@ class PhysicalOutput : public PhysicalIO, public Registrar<PhysicalOutput>
 {
 public:
     //    virtual void write(); // TODO: NEED?
-    PhysicalOutput(int index, String name);
+    PhysicalOutput(unsigned int index, String name);
 
     void update() override;
 };
 
-inline PhysicalOutput::PhysicalOutput(int index, String name):PhysicalIO{index, name}
+inline PhysicalOutput::PhysicalOutput(unsigned int index, String name):PhysicalIO{index, name}
 {
 //  IORegistrar::registerOutput(this);
 }

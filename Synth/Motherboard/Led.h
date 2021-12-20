@@ -18,7 +18,7 @@ public:
     BlinkOnce
   };
   
-  Led(int index);
+  Led(unsigned int index);
 
   void print() override;
 
@@ -39,7 +39,7 @@ private:
   elapsedMillis blinkTime;
 };
 
-inline Led::Led(int index):PhysicalIO{index, (String)"Led" + index}{
+inline Led::Led(unsigned int index):PhysicalIO{index, (String)"Led" + index}{
 //  IORegistrar::registerLed(this);
 }
 
@@ -124,5 +124,5 @@ inline void Led::print()
   Serial.printf("%07.2f", this->value);
 }
 
-#define Led MotherboardNamespace::Led
+//#define Led MotherboardNamespace::Led
 #endif
