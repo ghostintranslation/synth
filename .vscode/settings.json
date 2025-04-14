@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "complex": "cpp",
+        "memory": "cpp",
+        "new": "cpp",
+        "bitset": "cpp",
+        "map": "cpp",
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "vector": "cpp",
+        "cstddef": "cpp",
+        "variant": "cpp",
+        "ostream": "cpp",
+        "print": "cpp"
+    }
+}

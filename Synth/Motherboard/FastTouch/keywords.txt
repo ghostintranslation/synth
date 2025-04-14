@@ -1,2 +1,0 @@
-fastTouchRead	KEYWORD1
-fastTouchMax	KEYWORD1
