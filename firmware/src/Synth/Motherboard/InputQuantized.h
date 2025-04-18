@@ -43,7 +43,6 @@ inline int16_t *&InputQuantized::updateBefore(int16_t *&blockData)
         byte newNote = (int)((float)(blockData[0] + 32768) / 65536.0 * 12 * 5);
 
         if(newNote != this->note){
-            Serial.println(newNote);
             if(this->onNoteCallback){
                 this->onNoteCallback(newNote);
             }

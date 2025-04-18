@@ -132,7 +132,6 @@ inline int16_t *&InputQuantizedMCP3425::updateBefore(int16_t *&blockData)
     }
     byte newNote = (byte)((float)raw_adc / 32767 *12 * 5);
       if(newNote != this->note){
-            Serial.println(newNote);
             if(this->onNoteCallback){
                 this->onNoteCallback(newNote);
             }

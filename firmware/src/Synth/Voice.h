@@ -180,14 +180,12 @@ inline void Voice::update() {
  * Note on
  */
 inline void Voice::noteOn(byte midiNote) {
-  Serial.println("Voice::noteOn(byte midiNote)");
   this->isLastPlayedMidi = true;
   this->setNote(midiNote);
   // this->noteOn();
 }
 
 inline void Voice::noteOn() {
-  Serial.println("Voice::noteOn");
   this->isLastPlayedMidi = false;
   this->lastPlayed = millis();
   // this->envelope->noteOn();

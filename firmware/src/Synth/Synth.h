@@ -9,7 +9,7 @@
 #include "Combine.h"
 
 // Number of voices
-const byte voiceCount = 1;
+const byte voiceCount = 20;
 
 elapsedMillis timePassed;
 
@@ -410,6 +410,11 @@ void Synth::handleSpreadChange(int16_t value) {
 }
 
 inline void Synth::handleMonoPolyGlideChange(int16_t value) {
+  // This delay seem required otherwise Synth does not boot and keeps crashing
+  if (timePassed < 1000) {
+    return;
+  }
+
   float val = map((float)value, INT16_MIN, INT16_MAX, 0.0, 2.0);
   float valInverted = map((float)value, INT16_MIN, INT16_MAX, 2.0, 0.0);
 
@@ -441,7 +446,7 @@ inline void Synth::handleMonoPolyGlideChange(int16_t value) {
 
 inline void Synth::handleOnGateOpen() {
   // This is to avoid Gate triggering when powering on the device
-  if (timePassed < 3000) {
+  if (timePassed < 1000) {
     return;
   }
   
@@ -468,15 +473,20 @@ inline void Synth::handleOnGateClose() {
 
 inline void Synth::handleOnVOctCHange(byte note) {
   getInstance()->voctNote = note;
-
-  // if (getInstance()->actualVoiceCount > 1) {
-  //   if(getInstance()->isGateOpen){
-  //     getInstance()->handleOnGateOpen();
-  //   }
+// TODO: Redo Gate+Voct in poly:
+// When GateOpen, remember which voice was selected, 
+// and when VoctChange if gate is open then setFrequency of the last selected voice,
+// if gate is closed it won't do anything
+// Change InputQuantizedMCP3425 to InputMCP3425, add a setting like setQuantized,
+// Test without quantization
+  if (getInstance()->actualVoiceCount > 1) {
+    // if(getInstance()->isGateOpen){
+    //   getInstance()->handleOnGateOpen();
+    // }
   
-  // }else{
-    // getInstance()->voices[0]->setNote(note);
-  // }
+  }else{
+    getInstance()->voices[0]->setNote(note);
+  }
   getInstance()->led1->setStatus(OutputLed::Status::BlinkOnce);
 }
 
