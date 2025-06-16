@@ -182,13 +182,13 @@ inline void Voice::update() {
 inline void Voice::noteOn(byte midiNote) {
   this->isLastPlayedMidi = true;
   this->setNote(midiNote);
-  // this->noteOn();
+  this->noteOn();
 }
 
 inline void Voice::noteOn() {
   this->isLastPlayedMidi = false;
   this->lastPlayed = millis();
-  // this->envelope->noteOn();
+  this->envelope->noteOn();
 }
 
 /**

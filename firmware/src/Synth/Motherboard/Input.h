@@ -15,15 +15,17 @@
    Connect the 3 selector bits of the multiplexers of A0 and A2 to pins 2,3,4 and the 2 other to pins 5,6,10.
    Connect your inputs to the multiplexers. Make sure they don't go over 3.3v!
 */
-class Input : public AudioStream
+class Input : public AudioStream, public Registrar<Input>
 {
 public:
     Input(byte index);
     void update(void);
     virtual int16_t *&updateBefore(int16_t *&blockData) { return blockData; };
+    virtual int16_t addSampleBefore(int16_t sample) { return sample; };
     void setLowPassCoeff(float coeff);
     void setMidiInput(MidiInput *midiInput);
     void onChange(void (*onChangeCallback)(int16_t value));
+    byte getIndex();
 
 protected:
     byte index;
@@ -373,10 +375,27 @@ inline void Input::addSample(uint16_t val, uint8_t inputIndex)
 
     int32_t newVal = val * 16 - 32768;
     newVal = constrain(newVal, -32300, 32750);
-    newVal = (float)(newVal + 32300) / (32300 + 32750) * UINT16_MAX - INT16_MIN;
+    newVal = (float)(newVal + 32300) / (32300 + 32750) * UINT16_MAX + INT16_MIN;
+
     if (newVal < INT16_MIN)
     {
         newVal = INT16_MIN;
+    }
+    if (newVal > INT16_MAX)
+    {
+        newVal = INT16_MAX;
+    }
+    
+    // Allows for derived class to alter the data
+    Input* currentInput = nullptr;
+    for (unsigned int i = 0; i < getCount(); i++) {
+        if(getAll()[i]->getIndex() == inputIndex){
+            currentInput = getAll()[i];
+        }
+    }
+
+    if(currentInput != nullptr){
+        newVal = currentInput->addSampleBefore(newVal);
     }
 
     for (uint8_t i = 0; i < downSamplingFactor; i++)
@@ -395,6 +414,10 @@ inline void Input::setMidiInput(MidiInput *midiInput)
 inline void Input::onChange(void (*onChangeCallback)(int16_t value))
 {
     this->onChangeCallback = onChangeCallback;
+}
+
+inline byte Input::getIndex(){
+    return this->index;
 }
 
 #endif

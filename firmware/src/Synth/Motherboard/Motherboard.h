@@ -14,7 +14,7 @@
 #include "InputRotary.h"
 #include "InputTrigger.h"
 #include "InputQuantized.h"
-#include "InputQuantizedMCP3425.h"
+#include "InputADS1100.h"
 // #include "MidiCCInput.h"
 // #include "MidiNoteInput.h"
 // #include "MidiCCOutput.h"

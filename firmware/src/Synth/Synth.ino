@@ -28,9 +28,9 @@ AudioOutputI2S i2s;
 // AudioOutputUSB usb;
 
 void setup() {
-  // Serial.begin(115200);
+  Serial.begin(115200);
 
-  // while (!Serial && millis() < 2500); // wait for serial monitor
+  while (!Serial && millis() < 2500); // wait for serial monitor
  
   delay(100);
 
@@ -41,8 +41,9 @@ void setup() {
   delay(500);
 
   synth->init();
-  // new AudioConnection(*synth->getOutputL(), 0, i2s, 0);
-  // new AudioConnection(*synth->getOutputR(), 0, i2s, 1);
+
+  new AudioConnection(*synth->getOutputL(), 0, i2s, 0);
+  new AudioConnection(*synth->getOutputR(), 0, i2s, 1);
   // new AudioConnection(*synth->getOutputL(), 0, usb, 0);
   // new AudioConnection(*synth->getOutputR(), 0, usb, 1);
 }

@@ -25,10 +25,12 @@ private:
 
   Voice *voices[voiceCount];
   byte actualVoiceCount = voiceCount;
-  // byte octaveNumber;
+  byte octaveNumber;
+  bool isGateOpen = false;
   float portamento = 0;
-  byte voctNote = 0;
-  // bool isGateOpen = false;
+  int16_t voctNote = 0;
+  Voice* polySelectedVoice = nullptr;
+  byte currentVoiceIndex = 0;
 
   // Inputs
   Input *monoPolyGlide;
@@ -37,7 +39,7 @@ private:
   Input *spread;
   Input *attack;
   Input *release;
-  InputQuantizedMCP3425 *voct;
+  InputADS1100 *voct;
   // InputQuantized *voct;
   InputGate *gate;
   Input *attackMod;
@@ -68,15 +70,17 @@ private:
 
   static void handleMonoPolyGlideChange(int16_t value);
   static void handleSpreadChange(int16_t value);
+  static void handleOctaveChange(int16_t value);
   static void handleOnGateOpen();
   static void handleOnGateClose();
-  static void handleOnVOctCHange(byte note);
+  static void handleOnVOctCHange(int16_t note);
   static void handleMidiNoteOn(byte note, byte velocity);
   static void handleMidiNoteOff(byte note);
   static void handleMidiReleaseChange(byte value);
 
   // Find an appropriate voice to play a note
   Voice *getVoiceToPlay(unsigned int note);
+  Voice *getNextVoice();
   // Voice* getVoiceWithNote(unsigned int note);
 
   // MIDI
@@ -118,18 +122,27 @@ inline Synth *Synth::getInstance() {
  * Init
  */
 inline void Synth::init() {
+  this->led1 = new OutputLed(0);
+  this->led1->setStatus(OutputLed::Status::Off);
+  this->led2 = new OutputLed(1);
+  this->led2->setStatus(OutputLed::Status::Off);
+  this->led3 = new OutputLed(2);
+  this->led4 = new OutputLed(3);
+  this->led5 = new OutputLed(4);
+  this->led6 = new OutputLed(5);
+  this->led7 = new OutputLed(6);
+  this->led7->setStatus(OutputLed::Status::Off);
+
   this->monoPolyGlide = new Input(0);
   this->monoPolyGlide->onChange(handleMonoPolyGlideChange);
   this->octave = new Input(1);
   this->shape = new Input(2);
   this->spread = new Input(3);
   this->spread->setLowPassCoeff(0.0001);
-  // this->spread->onChange(handleSpreadChange);
   this->attack = new Input(4);
   this->release = new Input(5);
-  // this->voct = new InputQuantizedMCP3425(6);
-  this->voct = new InputQuantizedMCP3425(6);
-  this->voct->onNoteChange(handleOnVOctCHange);
+  this->voct = new InputADS1100(6);
+  this->voct->onChange(handleOnVOctCHange);
   this->gate = new InputGate(7);
   this->gate->onOpen(handleOnGateOpen);
   this->gate->onClose(handleOnGateClose);
@@ -142,20 +155,10 @@ inline void Synth::init() {
   this->fm = new Input(11);
   this->fm->setLowPassCoeff(0.2);
 
-  this->led1 = new OutputLed(0);
-  this->led1->setStatus(OutputLed::Status::Off);
-  this->led2 = new OutputLed(1);
-  this->led2->setStatus(OutputLed::Status::Off);
-  this->led3 = new OutputLed(2);
-  this->led4 = new OutputLed(3);
-  this->led5 = new OutputLed(4);
-  this->led6 = new OutputLed(5);
-  this->led7 = new OutputLed(6);
-  this->led7->setStatus(OutputLed::Status::Off);
-
 
   // To combine signals positively
   this->octaveCombine = new Combine<2>();
+  this->octaveCombine->onChange(handleOctaveChange);
   this->shapeCombine = new Combine<3>();
   this->spreadCombine = new Combine<2>();
   this->spreadCombine->onChange(handleSpreadChange);
@@ -277,7 +280,7 @@ inline Voice *Synth::getVoiceToPlay(unsigned int note) {
     // 3. Search for the oldest voice no matter its note
 
     oldestVoice = 0;
-    oldestVoiceTime = sizeof(unsigned long);
+    oldestVoiceTime = ULONG_MAX;
 
     for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
       if (getInstance()->voices[i]->lastPlayed < oldestVoiceTime) {
@@ -363,6 +366,17 @@ inline Voice *Synth::getVoiceToPlay(unsigned int note) {
   }
 }
 
+/**
+ * With Voct and Gate, just get a new voice every time.
+ * With MIDI we can use a more sophisticated methods because MIDI notes are exact, as opposed to frequencies.
+ */
+inline Voice *Synth::getNextVoice() {
+    currentVoiceIndex++;
+    if(currentVoiceIndex >= actualVoiceCount){
+      currentVoiceIndex = 0;
+    }
+    return getInstance()->voices[currentVoiceIndex];
+}
 
 // inline Voice* Synth::getVoiceWithNote(unsigned int note){
 //   for (int i = 0; i < getInstance()->actualVoiceCount; i++) {
@@ -409,9 +423,13 @@ void Synth::handleSpreadChange(int16_t value) {
   }
 }
 
+inline void Synth::handleOctaveChange(int16_t value){
+  getInstance()->octaveNumber = (float)((value + 32668) / 65335.0) * 6;  // 6 octaves
+}
+
 inline void Synth::handleMonoPolyGlideChange(int16_t value) {
   // This delay seem required otherwise Synth does not boot and keeps crashing
-  if (timePassed < 1000) {
+  if (timePassed < 3000) {
     return;
   }
 
@@ -449,11 +467,15 @@ inline void Synth::handleOnGateOpen() {
   if (timePassed < 1000) {
     return;
   }
-  
-  // getInstance()->isGateOpen = true;
+
+  getInstance()->isGateOpen = true;
 
   if (getInstance()->actualVoiceCount > 1) {
-    getInstance()->noteOn(getInstance()->voctNote, 127);
+    getInstance()->polySelectedVoice = getInstance()->getNextVoice();
+
+    float f = 440.0 * powf(2.0, (float)(((getInstance()->voctNote - 12) + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
+    getInstance()->polySelectedVoice->setFrequencyTarget(f);
+    getInstance()->polySelectedVoice->noteOn();
   }else{
     getInstance()->voices[0]->noteOn();
   }
@@ -462,7 +484,11 @@ inline void Synth::handleOnGateOpen() {
 }
 
 inline void Synth::handleOnGateClose() {
-  // getInstance()->isGateOpen = false;
+  if (timePassed < 1000) {
+    return;
+  }
+  
+  getInstance()->isGateOpen = false;
 
   for (int i = 0; i < voiceCount; i++) {
     getInstance()->voices[i]->noteOff();
@@ -471,31 +497,43 @@ inline void Synth::handleOnGateClose() {
   getInstance()->led2->setStatus(OutputLed::Status::Off);
 }
 
-inline void Synth::handleOnVOctCHange(byte note) {
+inline void Synth::handleOnVOctCHange(int16_t value) {
+  if (timePassed < 1000) {
+    return;
+  }
+
+  float note = ((float)(value + 32768) / 65535) * 60;
+  float f = 440.0 * powf(2.0, (float)(((note - 12) + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
   getInstance()->voctNote = note;
-// TODO: Redo Gate+Voct in poly:
-// When GateOpen, remember which voice was selected, 
-// and when VoctChange if gate is open then setFrequency of the last selected voice,
-// if gate is closed it won't do anything
-// Change InputQuantizedMCP3425 to InputMCP3425, add a setting like setQuantized,
-// Test without quantization
+
   if (getInstance()->actualVoiceCount > 1) {
-    // if(getInstance()->isGateOpen){
-    //   getInstance()->handleOnGateOpen();
-    // }
+  //   // getInstance()->polySelectedVoice->setNote(note);
+    if(getInstance()->isGateOpen){
+      if(getInstance()->polySelectedVoice != nullptr){
+        getInstance()->polySelectedVoice->setFrequencyTarget(f);
+      }
+    }
   
   }else{
-    getInstance()->voices[0]->setNote(note);
+      getInstance()->voices[0]->setFrequencyTarget(f);
   }
   getInstance()->led1->setStatus(OutputLed::Status::BlinkOnce);
 }
 
 inline void Synth::handleMidiNoteOn(byte note, byte velocity) {
+  if (timePassed < 1000) {
+    return;
+  }
+
   getInstance()->noteOn(note, velocity);
   getInstance()->led7->setStatus(OutputLed::Status::BlinkOnce);
 }
 
 inline void Synth::handleMidiNoteOff(byte note) {
+  if (timePassed < 1000) {
+    return;
+  }
+
   getInstance()->noteOff(note, 0);
   getInstance()->led7->setStatus(OutputLed::Status::BlinkOnce);
 }
