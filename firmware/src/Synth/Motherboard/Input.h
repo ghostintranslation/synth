@@ -23,14 +23,19 @@ public:
     virtual int16_t *&updateBefore(int16_t *&blockData) { return blockData; };
     virtual int16_t addSampleBefore(int16_t sample) { return sample; };
     void setLowPassCoeff(float coeff);
+    void setRange(int16_t min, int16_t max);
     void setMidiInput(MidiInput *midiInput);
     void onChange(void (*onChangeCallback)(int16_t value));
     byte getIndex();
+    int16_t getMin();
+    int16_t getMax();
 
 protected:
     byte index;
     int16_t *readBuffer();
     MidiInput *midiInput = nullptr;
+    int16_t min = INT16_MIN;
+    int16_t max = INT16_MAX;
 
     static unsigned int muxIndex1;
     static unsigned int muxIndex2;
@@ -246,6 +251,9 @@ inline void Input::update(void)
             }
         }
 
+        if(this->index == 5){
+            Serial.println(block->data[0]);
+        }
         transmit(block, 0);
         release(block);
     }
@@ -361,6 +369,11 @@ inline void Input::setLowPassCoeff(float coeff)
     lowPassCoeff[this->index] = coeff;
 }
 
+inline void Input::setRange(int16_t min, int16_t max){
+    this->min = min;
+    this->max = max;
+}
+
 inline void Input::addSample(uint16_t val, uint8_t inputIndex)
 {
     if (inputIndex >= inputsCount)
@@ -374,8 +387,8 @@ inline void Input::addSample(uint16_t val, uint8_t inputIndex)
     }
 
     int32_t newVal = val * 16 - 32768;
-    newVal = constrain(newVal, -32300, 32750);
-    newVal = (float)(newVal + 32300) / (32300 + 32750) * UINT16_MAX + INT16_MIN;
+    newVal = constrain(newVal, -32000, 32750);
+    newVal = (float)(newVal + 32000) / (32000 + 32750) * UINT16_MAX + INT16_MIN;
 
     if (newVal < INT16_MIN)
     {
@@ -395,6 +408,7 @@ inline void Input::addSample(uint16_t val, uint8_t inputIndex)
     }
 
     if(currentInput != nullptr){
+        newVal = map(newVal, INT16_MIN, INT16_MAX, currentInput->getMin(), currentInput->getMax());
         newVal = currentInput->addSampleBefore(newVal);
     }
 
@@ -418,6 +432,14 @@ inline void Input::onChange(void (*onChangeCallback)(int16_t value))
 
 inline byte Input::getIndex(){
     return this->index;
+}
+
+inline int16_t Input::getMin(){
+    return min;
+}
+
+inline int16_t Input::getMax(){
+    return max;
 }
 
 #endif

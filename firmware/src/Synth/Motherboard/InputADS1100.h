@@ -53,7 +53,7 @@ protected:
 
 inline InputADS1100::InputADS1100(int8_t index) : Input(index)
 {
-    this->setLowPassCoeff(0.9);
+    this->setLowPassCoeff(1.0);
 
     uint8_t singleMode = ADS1100_CONVERSION_CONTINOUS;
     uint8_t dataRate = ADS1100_DATA_RATE_128SPS;
@@ -90,7 +90,8 @@ inline int16_t InputADS1100::addSampleBefore(int16_t sample)
         data[0] = Wire.read();
         data[1] = Wire.read();
         
-        raw_adc = scale_signed_12_to_16((data[0] << 8) + data[1]);
+        raw_adc = ((data[0] << 8) + data[1]);
+        // raw_adc = (data[0] << 8) + data[1];
     } 
 
     return raw_adc;

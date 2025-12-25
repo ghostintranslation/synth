@@ -25,27 +25,29 @@ private:
 
   Voice *voices[voiceCount];
   byte actualVoiceCount = voiceCount;
-  byte octaveNumber;
+  byte octaveNumber = 4;
   bool isGateOpen = false;
   float portamento = 0;
-  int16_t voctNote = 0;
-  Voice* polySelectedVoice = nullptr;
+  float voctNote = 0;
+  float voctFrequency = 0;
+  Voice *polySelectedVoice = nullptr;
   byte currentVoiceIndex = 0;
+  float accent = 0;
+  float accentMultiplier = 0.5;
 
   // Inputs
   Input *monoPolyGlide;
-  Input *octave;
+  Input *pitch;
   Input *shape;
   Input *spread;
   Input *attack;
   Input *release;
-  InputADS1100 *voct;
-  // InputQuantized *voct;
-  InputGate *gate;
-  Input *attackMod;
-  Input *releaseMod;
-  Input *shapeMod;
-  Input *fm;
+  InputADS1115 *voct;
+  InputGate *gateCV;
+  Input *attackCV;
+  Input *releaseCV;
+  Input *accentCV;
+  InputGate *holdCV;
 
   // Leds
   OutputLed *led1;
@@ -56,11 +58,12 @@ private:
   OutputLed *led6;
   OutputLed *led7;
 
-  Combine<2> *octaveCombine;
-  Combine<3> *shapeCombine;
+  // Combine<2> *octaveCombine;
+  Combine<2> *shapeCombine;
   Combine<2> *spreadCombine;
   Combine<3> *attackCombine;
   Combine<3> *releaseCombine;
+  Combine<2> *accentCombine;
 
   // Delay for monophonic mode stereo
   AudioEffectDelay *delay;
@@ -70,10 +73,12 @@ private:
 
   static void handleMonoPolyGlideChange(int16_t value);
   static void handleSpreadChange(int16_t value);
-  static void handleOctaveChange(int16_t value);
+  // static void handleOctaveChange(int16_t value);
+  static void handleAccentChange(int16_t value);
+  static void handleAccentMultiplierChange(byte value);
   static void handleOnGateOpen();
   static void handleOnGateClose();
-  static void handleOnVOctCHange(int16_t note);
+  static void handleOnVOctCHange(int16_t value);
   static void handleMidiNoteOn(byte note, byte velocity);
   static void handleMidiNoteOff(byte note);
   static void handleMidiReleaseChange(byte value);
@@ -85,11 +90,13 @@ private:
 
   // MIDI
   MidiNotesInput *midiNotesInput;
-  MidiCCInput *octaveMidiCCInput;
+  // MidiCCInput *octaveMidiCCInput;// TODO: Remove
   MidiCCInput *shapeMidiCCInput;
   MidiCCInput *spreadMidiCCInput;
   MidiCCInput *attackMidiCCInput;
   MidiCCInput *releaseMidiCCInput;
+  MidiCCInput *accentMidiCCInput;
+  MidiCCInput *accentMultiplierMidiCCInput;
 
 public:
   static Synth *getInstance();
@@ -123,7 +130,7 @@ inline Synth *Synth::getInstance() {
  */
 inline void Synth::init() {
   this->led1 = new OutputLed(0);
-  this->led1->setStatus(OutputLed::Status::Off);
+  // this->led1->setStatus(OutputLed::Status::Off);
   this->led2 = new OutputLed(1);
   this->led2->setStatus(OutputLed::Status::Off);
   this->led3 = new OutputLed(2);
@@ -135,35 +142,34 @@ inline void Synth::init() {
 
   this->monoPolyGlide = new Input(0);
   this->monoPolyGlide->onChange(handleMonoPolyGlideChange);
-  this->octave = new Input(1);
+  this->pitch = new Input(1);
+  this->pitch->setRange(-6553, 6553);
   this->shape = new Input(2);
   this->spread = new Input(3);
   this->spread->setLowPassCoeff(0.0001);
   this->attack = new Input(4);
   this->release = new Input(5);
-  this->voct = new InputADS1100(6);
+  this->voct = new InputADS1115(6);
   this->voct->onChange(handleOnVOctCHange);
-  this->gate = new InputGate(7);
-  this->gate->onOpen(handleOnGateOpen);
-  this->gate->onClose(handleOnGateClose);
-  this->attackMod = new Input(8);
-  // this->attackMod->setLowPassCoeff(0.2);
-  this->releaseMod = new Input(9);
-  // this->releaseMod->setLowPassCoeff(0.2);
-  this->shapeMod = new Input(10);
-  // this->shapeMod->setLowPassCoeff(0.2);
-  this->fm = new Input(11);
-  this->fm->setLowPassCoeff(0.2);
+  this->gateCV = new InputGate(7);
+  this->gateCV->onOpen(handleOnGateOpen);
+  this->gateCV->onClose(handleOnGateClose);
+  this->attackCV = new Input(8);
+  this->releaseCV = new Input(9);
+  this->accentCV = new Input(10);
+  this->holdCV = new InputGate(11);
 
 
   // To combine signals positively
-  this->octaveCombine = new Combine<2>();
-  this->octaveCombine->onChange(handleOctaveChange);
-  this->shapeCombine = new Combine<3>();
+  // this->octaveCombine = new Combine<2>();
+  // this->octaveCombine->onChange(handleOctaveChange);
+  this->shapeCombine = new Combine<2>();
   this->spreadCombine = new Combine<2>();
   this->spreadCombine->onChange(handleSpreadChange);
   this->attackCombine = new Combine<3>();
   this->releaseCombine = new Combine<3>();
+  this->accentCombine = new Combine<2>();
+  this->accentCombine->onChange(handleAccentChange);
 
   // MIDI
   this->midiNotesInput = new MidiNotesInput();
@@ -172,11 +178,14 @@ inline void Synth::init() {
 
   // TODO: Edit CC numbers
   // TODO: Add Settings
-  this->octaveMidiCCInput = new MidiCCInput(1);
+  // this->octaveMidiCCInput = new MidiCCInput(1);
   this->shapeMidiCCInput = new MidiCCInput(2);
   this->spreadMidiCCInput = new MidiCCInput(3);
   this->releaseMidiCCInput = new MidiCCInput(4);
   this->attackMidiCCInput = new MidiCCInput(5);
+  this->accentMidiCCInput = new MidiCCInput(11);
+  this->accentMultiplierMidiCCInput = new MidiCCInput(1);
+  this->accentMultiplierMidiCCInput->onChange(handleAccentMultiplierChange);
 
   this->delay = new AudioEffectDelay();
   this->delay->delay(0, 0);
@@ -188,40 +197,59 @@ inline void Synth::init() {
 
   for (int i = 0; i < voiceCount; i++) {
     this->voices[i] = new Voice();
-    new AudioConnection(*this->octave, 0, *this->octaveCombine, 0);
-    new AudioConnection(*this->octaveMidiCCInput, 0, *this->octaveCombine, 1);
-    new AudioConnection(*this->octaveCombine, 0, *this->voices[i], 0);
-    new AudioConnection(*this->fm, 0, *this->voices[i], 1);
-    new AudioConnection(*this->fm, 0, *this->led6, 0);
-    new AudioConnection(*this->attack, 0, *this->attackCombine, 0);
-    new AudioConnection(*this->attackMod, 0, *this->attackCombine, 1);
-    new AudioConnection(*this->attackMidiCCInput, 0, *this->attackCombine, 2);
+    // new AudioConnection(*this->octaveCombine, 0, *this->voices[i], 0);
+    new AudioConnection(*this->pitch, 0, *this->voices[i], 1);
+    // new AudioConnection(*this->fm, 0, *this->voices[i], 2);
     new AudioConnection(*this->attackCombine, 0, *this->voices[i], 2);
-    new AudioConnection(*this->attackCombine, 0, *this->led3, 0);
-    new AudioConnection(*this->release, 0, *this->releaseCombine, 0);
-    new AudioConnection(*this->releaseMod, 0, *this->releaseCombine, 1);
-    new AudioConnection(*this->releaseMidiCCInput, 0, *this->releaseCombine, 2);
     new AudioConnection(*this->releaseCombine, 0, *this->voices[i], 3);
-    new AudioConnection(*this->releaseCombine, 0, *this->led4, 0);
-    new AudioConnection(*this->shape, 0, *this->shapeCombine, 0);
-    new AudioConnection(*this->shapeMod, 0, *this->shapeCombine, 1);
-    new AudioConnection(*this->shapeMidiCCInput, 0, *this->shapeCombine, 2);
     new AudioConnection(*this->shapeCombine, 0, *this->voices[i], 4);
-    new AudioConnection(*this->shapeCombine, 0, *this->led5, 0);
-    new AudioConnection(*this->spread, 0, *this->spreadCombine, 0);
-    new AudioConnection(*this->spreadMidiCCInput, 0, *this->spreadCombine, 1);
+    new AudioConnection(*this->holdCV, 0, *this->voices[i], 5);
     new AudioConnection(*this->voices[i], 0, *this->outputL, i);
     new AudioConnection(*this->voices[i], 0, *this->outputR, i);
-    new AudioConnection(*this->outputR, 0, *this->delay, 0);
   }
+
+  // new AudioConnection(*this->pitch, 0, *this->octaveCombine, 0);
+  // new AudioConnection(*this->octaveMidiCCInput, 0, *this->octaveCombine, 1);
+  new AudioConnection(*this->attack, 0, *this->attackCombine, 0);
+  new AudioConnection(*this->attackCV, 0, *this->attackCombine, 1);
+  new AudioConnection(*this->attackMidiCCInput, 0, *this->attackCombine, 2);
+  new AudioConnection(*this->attackCombine, 0, *this->led3, 0);
+  new AudioConnection(*this->release, 0, *this->releaseCombine, 0);
+  new AudioConnection(*this->releaseCV, 0, *this->releaseCombine, 1);
+  new AudioConnection(*this->releaseMidiCCInput, 0, *this->releaseCombine, 2);
+  new AudioConnection(*this->releaseCombine, 0, *this->led4, 0);
+  new AudioConnection(*this->shape, 0, *this->shapeCombine, 0);
+  new AudioConnection(*this->shapeMidiCCInput, 0, *this->shapeCombine, 1);
+  new AudioConnection(*this->spread, 0, *this->spreadCombine, 0);
+  new AudioConnection(*this->spreadMidiCCInput, 0, *this->spreadCombine, 1);
+  new AudioConnection(*this->accentCV, 0, *this->accentCombine, 0);
+  new AudioConnection(*this->accentMidiCCInput, 0, *this->accentCombine, 1);
+  new AudioConnection(*this->accentCombine, 0, *this->led5, 0);
+  new AudioConnection(*this->holdCV, 0, *this->led6, 0);
+  new AudioConnection(*this->outputR, 0, *this->delay, 0);
 }
 
 /**
  * Note on
  */
 inline void Synth::noteOn(byte note, byte velocity) {
+  if(velocity > 127){
+    velocity = 127;
+  }
+
+  float vel = pow((float)velocity / 127, 20);
+
+  float accent = this->accent + vel;
+  
+  if(accent > 1){
+    accent = 1;
+  }
+
   Voice *voice = getInstance()->getVoiceToPlay(note);
-  voice->noteOn(note);
+  voice->setAccent(this->accent);
+  voice->setAccent(accent);
+  voice->setAccentMultiplier(this->accentMultiplier);
+  voice->noteOn(note, (float)velocity / 127);
 }
 
 /**
@@ -371,11 +399,11 @@ inline Voice *Synth::getVoiceToPlay(unsigned int note) {
  * With MIDI we can use a more sophisticated methods because MIDI notes are exact, as opposed to frequencies.
  */
 inline Voice *Synth::getNextVoice() {
-    currentVoiceIndex++;
-    if(currentVoiceIndex >= actualVoiceCount){
-      currentVoiceIndex = 0;
-    }
-    return getInstance()->voices[currentVoiceIndex];
+  currentVoiceIndex++;
+  if (currentVoiceIndex >= actualVoiceCount) {
+    currentVoiceIndex = 0;
+  }
+  return getInstance()->voices[currentVoiceIndex];
 }
 
 // inline Voice* Synth::getVoiceWithNote(unsigned int note){
@@ -397,7 +425,6 @@ inline AudioStream *Synth::getOutputL() {
 
 inline AudioStream *Synth::getOutputR() {
   return this->delay;
-  // return this->outputR;
 }
 
 //TODO: Fix cracking when delay changes
@@ -423,9 +450,17 @@ void Synth::handleSpreadChange(int16_t value) {
   }
 }
 
-inline void Synth::handleOctaveChange(int16_t value){
-  getInstance()->octaveNumber = (float)((value + 32668) / 65335.0) * 6;  // 6 octaves
+inline void Synth::handleAccentChange(int16_t value) {
+  getInstance()->accent = ((float)(value + 32768) / 65335);
 }
+
+inline void Synth::handleAccentMultiplierChange(byte value) {
+  getInstance()->accentMultiplier = ((float)value / 127);
+}
+
+// inline void Synth::handleOctaveChange(int16_t value) {
+//   getInstance()->octaveNumber = (float)((value + 32668) / 65335.0) * 6;  // 6 octaves
+// }
 
 inline void Synth::handleMonoPolyGlideChange(int16_t value) {
   // This delay seem required otherwise Synth does not boot and keeps crashing
@@ -473,11 +508,11 @@ inline void Synth::handleOnGateOpen() {
   if (getInstance()->actualVoiceCount > 1) {
     getInstance()->polySelectedVoice = getInstance()->getNextVoice();
 
-    float f = 440.0 * powf(2.0, (float)(((getInstance()->voctNote - 12) + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
+    float f = 440.0 * powf(2.0, (float)(((getInstance()->voctNote) + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
     getInstance()->polySelectedVoice->setFrequencyTarget(f);
-    getInstance()->polySelectedVoice->noteOn();
-  }else{
-    getInstance()->voices[0]->noteOn();
+    getInstance()->polySelectedVoice->noteOn(1);
+  } else {
+    getInstance()->voices[0]->noteOn(1);
   }
 
   getInstance()->led2->setStatus(OutputLed::Status::On);
@@ -487,7 +522,7 @@ inline void Synth::handleOnGateClose() {
   if (timePassed < 1000) {
     return;
   }
-  
+
   getInstance()->isGateOpen = false;
 
   for (int i = 0; i < voiceCount; i++) {
@@ -501,21 +536,29 @@ inline void Synth::handleOnVOctCHange(int16_t value) {
   if (timePassed < 1000) {
     return;
   }
-
   float note = ((float)(value + 32768) / 65535) * 60;
-  float f = 440.0 * powf(2.0, (float)(((note - 12) + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
+
+  // float note = ((float)value / 32767) * 60;
+  float f = 440.0 * powf(2.0, (float)((note + 12 * getInstance()->octaveNumber) - 69) * 0.08333333);
+  // f = ((int)f*100) / (float)100;
+
+  if(getInstance()->voctFrequency == f){
+    return;
+  }
+
+  getInstance()->voctFrequency = f;
   getInstance()->voctNote = note;
 
   if (getInstance()->actualVoiceCount > 1) {
-  //   // getInstance()->polySelectedVoice->setNote(note);
-    if(getInstance()->isGateOpen){
-      if(getInstance()->polySelectedVoice != nullptr){
+    //   // getInstance()->polySelectedVoice->setNote(note);
+    if (getInstance()->isGateOpen) {
+      if (getInstance()->polySelectedVoice != nullptr) {
         getInstance()->polySelectedVoice->setFrequencyTarget(f);
       }
     }
-  
-  }else{
-      getInstance()->voices[0]->setFrequencyTarget(f);
+
+  } else {
+    getInstance()->voices[0]->setFrequencyTarget(f);
   }
   getInstance()->led1->setStatus(OutputLed::Status::BlinkOnce);
 }
